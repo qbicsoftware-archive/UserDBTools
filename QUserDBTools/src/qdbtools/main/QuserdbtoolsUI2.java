@@ -55,10 +55,10 @@ public class QuserdbtoolsUI2 extends UI {
   private TabSheet options;
   
   private Map<Integer,String> experimentMap;
-  private Map<Integer,Project> projectMap;
-  private Map<Integer,RoleAt2> projectRoles;
-  private Map<Integer,RoleAt2> experimentRoles;
-  private Map<Integer,RoleAtOrg> 
+//  private Map<Integer,Project> projectMap;
+//  private Map<Integer,RoleAt2> projectRoles;
+//  private Map<Integer,RoleAt2> experimentRoles;
+//  private Map<Integer,RoleAtOrg> 
 
   @Override
   protected void init(VaadinRequest request) {
