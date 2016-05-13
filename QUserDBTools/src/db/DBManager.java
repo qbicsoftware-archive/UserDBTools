@@ -26,8 +26,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import logging.Log4j2Logger;
 import model.Affiliation;
@@ -36,11 +38,11 @@ import model.PersonAffiliationConnectionInfo;
 import model.RoleAt;
 
 public class DBManager {
-  private DBConfig config;
+  private Config config;
 
   logging.Logger logger = new Log4j2Logger(DBManager.class);
 
-  public DBManager(DBConfig config) {
+  public DBManager(Config config) {
     this.config = config;
   }
 
@@ -496,6 +498,49 @@ public class DBManager {
     return res;
   }
 
+  private String getFreeDummyUserName() {
+    List<Person> existing = getPeopleWithDummyUserNames();
+    int last = 0;
+    for (Person p : existing) {
+      String user = p.getUsername();
+      try {
+        int num = Integer.parseInt(user.substring(4));
+        last = Math.max(last, num);
+      } catch (NumberFormatException e) {
+        logger.warn("Could not parse number from dummy username " + user);
+      }
+    }
+    return "todo" + Integer.toString(last + 1);
+
+  }
+
+  public List<Person> getPeopleWithDummyUserNames() {
+    String dummy = "todo";
+    List<Person> existing = new ArrayList<Person>();
+    String sql = "SELECT * FROM persons WHERE username LIKE ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setString(1, dummy + "%");
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        String username = rs.getString("username");
+        String title = rs.getString("title");
+        String first = rs.getString("first_name");
+        String last = rs.getString("family_name");
+        String email = rs.getString("email");
+        String phone = rs.getString("phone");
+        existing.add(new Person(username, title, first, last, email, phone, -1, "", ""));
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return existing;
+  }
+
   public boolean addNewPerson(Person person) {
     logger.info("Trying to add new person to the DB");
     // TODO empty values are inserted as empty strings, ok?
@@ -507,7 +552,10 @@ public class DBManager {
     PreparedStatement statement = null;
     try {
       statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-      statement.setString(1, person.getUsername());
+      String user = person.getUsername();
+      if (user == null || user.isEmpty())
+        user = getFreeDummyUserName();
+      statement.setString(1, user);
       statement.setString(2, person.getTitle());
       statement.setString(3, person.getFirst());
       statement.setString(4, person.getLast());
@@ -621,31 +669,96 @@ public class DBManager {
     logout(conn);
   }
 
-  public boolean addNewPersonAffiliationConnections(
+  public boolean addOrUpdatePersonAffiliationConnections(int personID,
       List<PersonAffiliationConnectionInfo> newConnections) {
     Connection conn = login();
     boolean res = false;
     String sql = "";
     PreparedStatement statement = null;
+    List<Integer> knownAffiliationIDs = getPersonAffiliationIDs(personID);
     for (PersonAffiliationConnectionInfo data : newConnections) {
-      sql = "INSERT INTO persons_organizations (person_id, organization_id, role)";
+      int affiID = data.getAffiliation_id();
+      String role = data.getRole();
+      logger.debug("Trying to add user " + personID + " (" + role + ") to affiliation " + affiID);
+      if (knownAffiliationIDs.contains(affiID)) {
+        logger.debug("user is part of that affiliation, updating role");
+        sql =
+            "UPDATE persons_organizations SET occupation = ? WHERE person_id = ? and organization_id = ?";
+        try {
+          statement = conn.prepareStatement(sql);
+          statement.setInt(2, personID);
+          statement.setInt(3, affiID);
+          statement.setString(1, role);
+          statement.execute();
+          logger.info("Successful.");
+          res = true;
+        } catch (SQLException e) {
+          logger.error("SQL operation unsuccessful: " + e.getMessage());
+          e.printStackTrace();
+        } finally {
+          // we updated this connection and can remove the id
+          knownAffiliationIDs.remove(new Integer(affiID));
+        }
+      } else {
+        sql =
+            "INSERT INTO persons_organizations (person_id, organization_id, occupation) VALUES (?,?,?)";
+        try {
+          logger.debug("user is not part of that affiliation yet, inserting");
+          statement = conn.prepareStatement(sql);
+          statement.setInt(1, personID);
+          statement.setInt(2, affiID);
+          statement.setString(3, role);
+          statement.execute();
+          logger.info("Successful.");
+          res = true;
+        } catch (SQLException e) {
+          logger.error("SQL operation unsuccessful: " + e.getMessage());
+          e.printStackTrace();
+        } finally {
+          // we added this connection and can remove the id
+          knownAffiliationIDs.remove(new Integer(affiID));
+        }
+      }
+    }
+    // any ID still in the list must be from an affiliation connection that the user removed in
+    // the UI, thus we remove it from the DB
+    for (int oldAffiID : knownAffiliationIDs) {
+      sql = "DELETE FROM persons_organizations WHERE person_id = ? and organization_id = ?";
       try {
-        statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-        statement.setInt(1, data.getPerson_id());
-        statement.setInt(2, data.getAffiliation_id());
-        statement.setString(3, data.getRole());
+        logger.debug("user affiliation id " + oldAffiID
+            + " found in DB, but not in updated connections, deleting this connection");
+        statement = conn.prepareStatement(sql);
+        statement.setInt(1, personID);
+        statement.setInt(2, oldAffiID);
         statement.execute();
         logger.info("Successful.");
         res = true;
       } catch (SQLException e) {
         logger.error("SQL operation unsuccessful: " + e.getMessage());
         e.printStackTrace();
-      } finally {
-        endQuery(null, statement);
       }
     }
-    if (conn != null)
-      logout(conn);
+    endQuery(conn, statement);
+    return res;
+  }
+
+  public List<Integer> getPersonAffiliationIDs(int person_id) {
+    List<Integer> res = new ArrayList<Integer>();
+    String sql = "SELECT * FROM persons_organizations WHERE person_id = ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, person_id);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        res.add(rs.getInt("organization_id"));
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
     return res;
   }
 
@@ -684,34 +797,69 @@ public class DBManager {
     return res;
   }
 
+  public Set<String> getInstituteNames() {
+    Set<String> res = new HashSet<String>();
+    String sql = "SELECT institute FROM organizations";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        res.add(rs.getString("institute"));
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
+  }
+
   public Affiliation getOrganizationInfosFromInstitute(String institute) {
-    Affiliation res = null, maybe = null;
-    String sql =
-        "SELECT * FROM organizations WHERE institute LIKE ?";
+    Affiliation res = null;
+    String sql = "SELECT * FROM organizations WHERE institute LIKE ?";
     Connection conn = login();
     PreparedStatement statement = null;
     try {
       statement = conn.prepareStatement(sql);
       statement.setString(1, institute + "%");
       ResultSet rs = statement.executeQuery();
-      String street = "";
+      Set<String> streets = new HashSet<String>();
+      Set<String> orgs = new HashSet<String>();
+      Set<String> faculties = new HashSet<String>();
+      Set<Integer> zips = new HashSet<Integer>();
+      Set<String> cities = new HashSet<String>();
+      Set<String> countries = new HashSet<String>();
       while (rs.next()) {
-        String faculty = rs.getString("faculty");
+        faculties.add(rs.getString("faculty"));
+        orgs.add(rs.getString("umbrella_organization"));
+        streets.add(rs.getString("street"));
+        zips.add(rs.getInt("zip_code"));
+        countries.add(rs.getString("country"));
+        cities.add(rs.getString("city"));
         institute = rs.getString("institute");
-        if (!street.isEmpty() && !street.equals(rs.getString("street"))) {
-          street = "";
-          break;
-        } else
-          street = rs.getString("street");
-        String zipCode = rs.getString("zip_code");
-        String city = rs.getString("city");
-        String country = rs.getString("country");
-        String organization = rs.getString("umbrella_organisation");
-        maybe = new Affiliation(-1, "", "", institute, organization, faculty, "", street, zipCode,
-            city, country, "");
       }
-      if (!street.isEmpty())
-        res = maybe;
+      String street = "";
+      String faculty = "";
+      String organization = "";
+      String zipCode = "";
+      String city = "";
+      String country = "";
+      if (streets.size() == 1)
+        street = streets.iterator().next();
+      if (orgs.size() == 1)
+        organization = orgs.iterator().next();
+      if (faculties.size() == 1)
+        faculty = faculties.iterator().next();
+      if (countries.size() == 1)
+        country = countries.iterator().next();
+      if (zips.size() == 1)
+        zipCode = Integer.toString(zips.iterator().next());
+      if (cities.size() == 1)
+        city = cities.iterator().next();
+      res = new Affiliation(-1, "", "", organization, institute, faculty, "", "", street, zipCode,
+          city, country, "");
     } catch (SQLException e) {
       e.printStackTrace();
     } finally {
@@ -722,8 +870,7 @@ public class DBManager {
 
   public Affiliation getOrganizationInfosFromOrg(String organization) {
     Affiliation res = null, maybe = null;
-    String sql =
-        "SELECT * FROM organizations WHERE umbrella_organization LIKE ?";
+    String sql = "SELECT * FROM organizations WHERE umbrella_organization LIKE ?";
     Connection conn = login();
     PreparedStatement statement = null;
     try {
@@ -739,12 +886,12 @@ public class DBManager {
           break;
         } else
           street = rs.getString("street");
-        organization = rs.getString("umbrella_organisation");
+        organization = rs.getString("umbrella_organization");
         String zipCode = rs.getString("zip_code");
         String city = rs.getString("city");
         String country = rs.getString("country");
-        maybe = new Affiliation(-1, "", "", institute, organization, faculty, "", street, zipCode,
-            city, country, "");
+        maybe = new Affiliation(-1, "", "", organization, institute, faculty, "", "", street,
+            zipCode, city, country, "");
       }
       if (!street.isEmpty())
         res = maybe;
@@ -776,14 +923,25 @@ public class DBManager {
         String organization = rs.getString("umbrella_organization");
         String faculty = rs.getString("faculty");
         String institute = rs.getString("institute");
-        // String contact = rs.getString("first_name") + " " + " " + rs.getString("family_name");
         String street = rs.getString("street");
         String zipCode = rs.getString("zip_code");
         String city = rs.getString("city");
         String country = rs.getString("country");
         String webpage = rs.getString("webpage");
-        res.add(new Affiliation(id, groupName, acronym, institute, organization, faculty, "",
-            street, zipCode, city, country, webpage));
+        int contactID = rs.getInt("main_contact");
+        int headID = rs.getInt("head");
+        String contact = null;
+        String head = null;
+        if (contactID > 0) {
+          Person c = getPerson(contactID);
+          contact = c.getFirst() + " " + c.getLast();
+        }
+        if (headID > 0) {
+          Person h = getPerson(headID);
+          head = h.getFirst() + " " + h.getLast();
+        }
+        res.add(new Affiliation(id, groupName, acronym, organization, institute, faculty, contact,
+            head, street, zipCode, city, country, webpage));
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -916,5 +1074,24 @@ public class DBManager {
       } catch (Exception e) {
         logger.error("Database Connection close problem");
       }
+  }
+
+  public void setAffiliationVIP(int affi, int person, String role) {
+    logger.info("Trying to set/change affiliation-specific role " + role);
+    String sql = "UPDATE organizations SET " + role + "=? WHERE id = ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, person);
+      statement.setInt(2, affi);
+      statement.execute();
+      logger.info("Successful for " + role);
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    } finally {
+      endQuery(null, statement);
+    }
   }
 }

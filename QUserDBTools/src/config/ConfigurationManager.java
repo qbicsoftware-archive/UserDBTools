@@ -17,6 +17,8 @@
  *******************************************************************************/
 package config;
 
+import java.util.List;
+
 /**
  * The ConfigurationManger interface represents the entire .properties file. One might think about
  * adding a getAttribute method in order to make it more generic.
@@ -64,4 +66,8 @@ public interface ConfigurationManager {
   public String getLdapBase();
   public String getLdapUser();
   public String getLdapPass();
+
+  List<String> getDBInputUserGrps();
+
+  List<String> getDBInputAdminGrps();
 }

@@ -4,17 +4,18 @@ import java.util.List;
 import java.util.Map;
 
 import model.Person;
-
+import qdbtools.main.QuserdbtoolsUI;
 import helpers.Helpers;
 
 import com.vaadin.data.validator.RegexpValidator;
+import com.vaadin.shared.ui.combobox.FilteringMode;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.ComboBox;
 import com.vaadin.ui.FormLayout;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.themes.ValoTheme;
 
-public class UserInput extends FormLayout {
+public class PersonInput extends FormLayout {
 
   /**
    * 
@@ -32,16 +33,20 @@ public class UserInput extends FormLayout {
 
   private Map<String, Integer> affiliationMap;
 
-  public UserInput(List<String> titles, Map<String, Integer> affiliations, List<String> roles) {
+  public PersonInput(List<String> titles, Map<String, Integer> affiliations, List<String> roles) {
     setMargin(true);
 
     affiliationMap = affiliations;
 
     userName = new TextField("Username");
-    userName.setRequired(true);
-    userName.addValidator(new RegexpValidator(Helpers.VALID_USERNAME_REGEX,
-        "Please input a valid username."));
-    addComponent(userName);
+    // userName.setRequired(true);
+    userName.addValidator(
+        new RegexpValidator(Helpers.VALID_USERNAME_REGEX, "Please input a valid username."));
+    addComponent(QuserdbtoolsUI.questionize(userName,
+        "University Tübingen user name or user name provided by QBiC. If left empty a dummy user name is chosen "
+        + "which cannot be used to log in until a real name is added. Person information can still be added to "
+        + "projects or experiments in that case.",
+        "User Name"));
 
     title = new ComboBox("Title", titles);
     title.setRequired(true);
@@ -72,8 +77,10 @@ public class UserInput extends FormLayout {
     affiliation = new ComboBox("Affiliation", affiliations.keySet());
     affiliation.setNullSelectionAllowed(false);
     affiliation.setRequired(true);
+    affiliation.setFilteringMode(FilteringMode.CONTAINS);
     affiliation.setStyleName(ValoTheme.COMBOBOX_SMALL);
-    addComponent(affiliation);
+    addComponent(QuserdbtoolsUI.questionize(affiliation, "Work group or organization this person is part of. If it does not exist in the system "
+        + "a \"New Affiliation\" has to be created first. Additional Affiliations and roles can be set in the next Tab.", "Affiliation"));
 
     role = new ComboBox("Role", roles);
     role.setRequired(true);
@@ -86,7 +93,7 @@ public class UserInput extends FormLayout {
   }
 
   public boolean isValid() {
-    return userName.isValid() && first.isValid() && last.isValid() && title.isValid()
+    return userName.isValid() && title.isValid() && first.isValid() && last.isValid() && title.isValid()
         && eMail.isValid() && phone.isValid() && affiliation.isValid() && role.isValid();
   }
 
@@ -102,7 +109,7 @@ public class UserInput extends FormLayout {
     if (role.getValue() != null)
       affRole = role.getValue().toString();
     String affi = (String) affiliation.getValue();
-    return new Person(userName.getValue(), ttl, first.getValue(), last.getValue(),
-        eMail.getValue(), phone.getValue(), affiliationMap.get(affi), affi, affRole);
+    return new Person(userName.getValue(), ttl, first.getValue(), last.getValue(), eMail.getValue(),
+        phone.getValue(), affiliationMap.get(affi), affi, affRole);
   }
 }

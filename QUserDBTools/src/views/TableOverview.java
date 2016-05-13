@@ -7,17 +7,21 @@ import model.Affiliation;
 import model.Person;
 import model.RoleAt;
 
+import com.vaadin.ui.TabSheet;
 import com.vaadin.ui.Table;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
 
 public class TableOverview extends VerticalLayout {
 
+  private TabSheet tabs;
   private Table persons;
   private Table affiliations;
 
   public TableOverview(List<Person> personData, List<Affiliation> affiliationData) {
-    persons = new Table("Persons");
+    tabs = new TabSheet();
+    
+    persons = new Table("People");
     persons.setStyleName(ValoTheme.TABLE_SMALL);
 //    persons.addContainerProperty("ID", Integer.class, null);
     persons.addContainerProperty("User", String.class, null);
@@ -28,7 +32,7 @@ public class TableOverview extends VerticalLayout {
     persons.addContainerProperty("Phone", String.class, null);
     persons.addContainerProperty("Affiliation", String.class, null);
     persons.addContainerProperty("Role", String.class, null);
-    addComponent(persons);
+    tabs.addTab(persons, "People");
 
     affiliations = new Table("Affiliations");
     affiliations.setStyleName(ValoTheme.TABLE_SMALL);
@@ -44,8 +48,9 @@ public class TableOverview extends VerticalLayout {
     // affiliations.addContainerProperty("city", String.class, null);
     // affiliations.addContainerProperty("country", String.class, null);
     // affiliations.addContainerProperty("webpage", String.class, null);
-    addComponent(affiliations);
-
+    tabs.addTab(affiliations, "Organizations");
+    addComponent(tabs);
+    
     for (int i = 0; i < personData.size(); i++) {
       int itemId = i;
       List<Object> row = new ArrayList<Object>();

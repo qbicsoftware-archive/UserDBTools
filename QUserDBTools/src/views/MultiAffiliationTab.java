@@ -9,16 +9,21 @@ import java.util.Map;
 import model.Person;
 import model.PersonAffiliationConnectionInfo;
 import model.RoleAt;
+import model.Tuple;
 
-import com.vaadin.server.FontAwesome;
+import com.vaadin.shared.ui.combobox.FilteringMode;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.ComboBox;
-import com.vaadin.ui.FormLayout;
 import com.vaadin.ui.Table;
+import com.vaadin.ui.TextField;
+import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.themes.ValoTheme;
 
-public class MultiAffiliationTab extends FormLayout {
+public class MultiAffiliationTab extends VerticalLayout {
+
+  // private TabSheet tabs;
+  // private FormLayout personTab;
 
   private ComboBox organization;
   private ComboBox person;
@@ -26,28 +31,37 @@ public class MultiAffiliationTab extends FormLayout {
 
   private Table table;
 
-  private Button setContactPerson;
+  // private Button setContactPerson;
   private Button commit;
+
+  // private FormLayout affiTab;
+
 
   private Map<String, Integer> affiliationMap;
   private Map<String, Integer> personMap;
   private List<String> availableRoles;
   private Map<Integer, Person> personAffiliationsInTable;
+  private String currentPerson;
 
   public MultiAffiliationTab(Map<String, Integer> persons, Map<String, Integer> affiliations,
       List<String> roles) {
+    // tabs = new TabSheet();
+    // personTab = new FormLayout();
     setMargin(true);
+    setSpacing(true);
     this.affiliationMap = affiliations;
     this.personMap = persons;
     this.availableRoles = roles;
 
     person = new ComboBox("Person", persons.keySet());
     person.setStyleName(ValoTheme.COMBOBOX_SMALL);
+    person.setFilteringMode(FilteringMode.CONTAINS);
     person.setNullSelectionAllowed(false);
     addComponent(person);
     organization = new ComboBox("Organization", affiliations.keySet());
     organization.setNullSelectionAllowed(false);
     organization.setStyleName(ValoTheme.COMBOBOX_SMALL);
+    organization.setFilteringMode(FilteringMode.CONTAINS);
     addComponent(organization);
 
     addToTable = new Button("Add to Preview");
@@ -56,9 +70,9 @@ public class MultiAffiliationTab extends FormLayout {
 
     table = new Table();
     table.setWidthUndefined();
-    table.addContainerProperty("Title", String.class, null);
-    table.addContainerProperty("First Name", String.class, null);
-    table.addContainerProperty("Family Name", String.class, null);
+    // table.addContainerProperty("Title", String.class, null);
+    // table.addContainerProperty("First Name", String.class, null);
+    // table.addContainerProperty("Family Name", String.class, null);
     table.addContainerProperty("Affiliation", String.class, null);
     table.setColumnWidth("Affiliation", 250);
     table.addContainerProperty("Role", ComboBox.class, null);
@@ -70,6 +84,10 @@ public class MultiAffiliationTab extends FormLayout {
 
     commit = new Button("Save Changes");
     addComponent(commit);
+    // tabs.addTab(personTab, "Edit Person");
+
+    // tabs.addTab(affiTab, "Edit Affiliation");
+    // addComponent(tabs);
   }
 
   public ComboBox getPersonBox() {
@@ -84,23 +102,31 @@ public class MultiAffiliationTab extends FormLayout {
     return commit;
   }
 
-  public List<PersonAffiliationConnectionInfo> getNewConnections() {
-    // String ttl = title.getValue().toString();
-    // if (ttl == null)
-    // ttl = "";
-    // String affRole = role.getValue().toString();
-    // if (affRole == null)
-    // affRole = "";
-    return null;
-    // return new Person(userName.getValue(), ttl, first.getValue(), last.getValue(),
-    // eMail.getValue(), phone.getValue(), affiliationMap.get((String) affiliation.getValue()),
-    // affRole);
+  public List<PersonAffiliationConnectionInfo> getChangedAndNewConnections() {
+    List<PersonAffiliationConnectionInfo> res = new ArrayList<PersonAffiliationConnectionInfo>();
+    for (Object affiliationID : table.getItemIds()) {
+      ComboBox roleBox = (ComboBox) table.getItem(affiliationID).getItemProperty("Role").getValue();
+      // String first = (String) table.getItem(id).getItemProperty("First Name").getValue();
+      // String last = (String) table.getItem(id).getItemProperty("Family Name").getValue();
+      // String name = first + " " + last;
+      int personID = personMap.get(currentPerson);
+      String role = "";
+      if (roleBox.getValue() != null)
+        role = (String) roleBox.getValue();
+      res.add(new PersonAffiliationConnectionInfo(personID, (int) affiliationID, role));
+    }
+    return res;
   }
 
   public void reactToPersonSelection(List<Person> personsWithAffiliations) {
     table.removeAllItems();
     personAffiliationsInTable = new HashMap<Integer, Person>();
-
+    Person p = personsWithAffiliations.get(0);
+    String title = p.getTitle();
+    String first = p.getFirst();
+    String last = p.getLast();
+    currentPerson = first + " " + last;
+    table.setCaption("Affiliations of " + title + " " + first + " " + last);
     addDataToTable(personsWithAffiliations);
 
     table.setVisible(true);
@@ -108,18 +134,18 @@ public class MultiAffiliationTab extends FormLayout {
 
   public void addDataToTable(List<Person> personsWithAffiliations) {
     for (Person p : personsWithAffiliations) {
-      String title = p.getTitle();
-      String first = p.getFirst();
-      String last = p.getLast();
+      // String title = p.getTitle();
+      // String first = p.getFirst();
+      // String last = p.getLast();
       Map<Integer, RoleAt> map = p.getAffiliationInfos();
       for (Integer i : p.getAffiliationInfos().keySet()) {
         personAffiliationsInTable.put(i, p);
         String affiliation = map.get(i).getAffiliation();
         String role = map.get(i).getRole();
         List<Object> row = new ArrayList<Object>();
-        row.add(title);
-        row.add(first);
-        row.add(last);
+        // row.add(title);
+        // row.add(first);
+        // row.add(last);
         row.add(affiliation);
         ComboBox roleInput = new ComboBox("", availableRoles);
         roleInput.setStyleName(ValoTheme.COMBOBOX_SMALL);
@@ -151,7 +177,7 @@ public class MultiAffiliationTab extends FormLayout {
 
   public boolean isValid() {
     // TODO Auto-generated method stub
-    return false;
+    return true;
   }
 
   public boolean newAffiliationPossible() {

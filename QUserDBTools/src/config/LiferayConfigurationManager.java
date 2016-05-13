@@ -15,6 +15,9 @@
  *******************************************************************************/
 package config;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 
 import com.liferay.util.portlet.PortletProps; // util-java.jar
@@ -45,6 +48,9 @@ public enum LiferayConfigurationManager implements ConfigurationManager {
   public static final String MSQL_USER = "mysql.user";
   public static final String MSQL_PORT = "mysql.port";
   public static final String MSQL_PASS = "mysql.pass";
+  
+  public static final String DB_INPUT_USER_GROUPS = "mysql.input.usergrp";
+  public static final String DB_INPUT_ADMIN_GROUPS = "mysql.input.admingrp";
 
   public static final String UNI_LDAP_URI = "uni.ldap.uri";
   public static final String UNI_LDAP_USER = "uni.ldap.user";
@@ -73,6 +79,9 @@ public enum LiferayConfigurationManager implements ConfigurationManager {
   private String msqlUser;
   private String msqlPort;
   private String msqlPass;
+
+  private List<String> dbInputUserGrps;
+  private List<String> dbInputAdminGrps;
   
   private String uniLdapUri;
   private String uniLdapUser;
@@ -111,6 +120,15 @@ public enum LiferayConfigurationManager implements ConfigurationManager {
     msqlUser = portletConfig.getProperty(MSQL_USER);
     msqlPort = portletConfig.getProperty(MSQL_PORT);
     msqlPass = portletConfig.getProperty(MSQL_PASS);
+
+    dbInputUserGrps = new ArrayList<String>(
+        Arrays.asList(portletConfig.getProperty(DB_INPUT_USER_GROUPS).split(",")));
+    for (int i = 0; i < dbInputUserGrps.size(); i++)
+      dbInputUserGrps.set(i, dbInputUserGrps.get(i).trim());
+    dbInputAdminGrps = new ArrayList<String>(
+        Arrays.asList(portletConfig.getProperty(DB_INPUT_ADMIN_GROUPS).split(",")));
+    for (int i = 0; i < dbInputAdminGrps.size(); i++)
+      dbInputAdminGrps.set(i, dbInputAdminGrps.get(i).trim());
     
     uniLdapUri = portletConfig.getProperty(UNI_LDAP_URI);
     uniLdapUser = portletConfig.getProperty(UNI_LDAP_USER);
@@ -203,6 +221,16 @@ public enum LiferayConfigurationManager implements ConfigurationManager {
     return msqlPass;
   }
 
+  @Override
+  public List<String> getDBInputUserGrps() {
+    return dbInputUserGrps;
+  }
+  
+  @Override
+  public List<String> getDBInputAdminGrps() {
+    return dbInputAdminGrps;
+  }
+  
   @Override
   public String getVocabularyMSLabeling() {
     return labelingMethods;

@@ -11,13 +11,14 @@ public class Affiliation {
   private int contactPersonID;
   private int headID;
   private String contactPerson;
+  private String headName;
   private String street;
   private String zipCode;
   private String city;
   private String country;
   private String webpage;
 
-  public Affiliation(String groupName, String acronym, String institute, String organization,
+  public Affiliation(String groupName, String acronym, String organization, String institute,
       String faculty, int contactID, int headID, String street, String zipCode, String city,
       String country, String webpage) {
     this.groupName = groupName;
@@ -34,8 +35,8 @@ public class Affiliation {
     this.webpage = webpage;
   }
 
-  public Affiliation(int id, String groupName, String acronym, String institute,
-      String organization, String faculty, String contact, String street, String zipCode,
+  public Affiliation(int id, String groupName, String acronym, String organization,
+      String institute, String faculty, String contact, String head, String street, String zipCode,
       String city, String country, String webpage) {
     this.id = id;
     this.groupName = groupName;
@@ -44,6 +45,7 @@ public class Affiliation {
     this.institute = institute;
     this.faculty = faculty;
     this.contactPerson = contact;
+    this.headName = head;
     this.street = street;
     this.zipCode = zipCode;
     this.city = city;
@@ -105,5 +107,9 @@ public class Affiliation {
 
   public String getWebpage() {
     return webpage;
+  }
+
+  public String getHeadName() {
+    return headName;
   }
 }

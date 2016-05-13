@@ -17,23 +17,37 @@
  *******************************************************************************/
 package db;
 
-public class DBConfig {
+import java.util.List;
+
+public class Config {
 
   private String hostname;
   private String port;
   private String sql_database;
   private String username;
   private String password;
+  private List<String> userGrps;
+  private List<String> adminGrps;
 
-  public DBConfig(String hostname, String port, String sql_database, String username,
-      String password) {
+  public Config(String hostname, String port, String sql_database, String username,
+      String password, List<String> userGrps, List<String> adminGrps) {
     this.hostname = hostname;
     this.port = port;
     this.sql_database = sql_database;
     this.username = username;
     this.password = password;
+    this.adminGrps = adminGrps;
+    this.userGrps = userGrps;
+  }
+  
+  public List<String> getUserGrps() {
+    return userGrps;
   }
 
+  public List<String> getAdminGrps() {
+    return adminGrps;
+  }
+  
   public String getHostname() {
     return hostname;
   }

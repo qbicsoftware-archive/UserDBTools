@@ -4,9 +4,11 @@ import helpers.Helpers;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import logging.Log4j2Logger;
 import model.Affiliation;
+import qdbtools.main.QuserdbtoolsUI;
 
 import com.vaadin.data.validator.RegexpValidator;
 import com.vaadin.shared.ui.combobox.FilteringMode;
@@ -25,7 +27,7 @@ public class AffiliationInput extends FormLayout {
   private TextField groupName;
   private TextField acronym;
   private TextField organization;
-  private TextField institute;
+  private ComboBox institute;
   private ComboBox faculty;
   private ComboBox contactPerson;
   private ComboBox head;
@@ -41,7 +43,8 @@ public class AffiliationInput extends FormLayout {
 
   logging.Logger logger = new Log4j2Logger(AffiliationInput.class);
 
-  public AffiliationInput(List<String> faculties, Map<String, Integer> personMap) {
+  public AffiliationInput(Set<String> institutes, List<String> faculties,
+      Map<String, Integer> personMap) {
     setMargin(true);
 
     this.personMap = personMap;
@@ -52,7 +55,10 @@ public class AffiliationInput extends FormLayout {
 
     acronym = new TextField("Acronym");
     acronym.setWidth("300px");
-    addComponent(acronym);
+    addComponent(QuserdbtoolsUI.questionize(acronym,
+        "Short acronym of the lowest level of this affiliation, "
+            + "e.g. of the group if specified or of the institute if group field is left empty.",
+        "Acronym"));
 
     organization = new TextField("Organization");
     organization.setWidth("300px");
@@ -61,30 +67,39 @@ public class AffiliationInput extends FormLayout {
     organization.setDescription("Organization or University Name");
     addComponent(organization);
 
-    institute = new TextField("Institute");
+    institute = new ComboBox("Institute", institutes);
     institute.setWidth("300px");
+    institute.setNewItemsAllowed(true);
+    institute.setStyleName(ValoTheme.COMBOBOX_SMALL);
+    institute.setFilteringMode(FilteringMode.CONTAINS);
     // institute.setRequired(true);
-    addComponent(institute);
+    addComponent(QuserdbtoolsUI.questionize(institute,
+        "Select existing institutes or input a new one.", "Institute"));
 
     faculty = new ComboBox("Faculty", faculties);
     faculty.setRequired(true);
     faculty.setStyleName(ValoTheme.COMBOBOX_SMALL);
     faculty.setWidth("300px");
-    addComponent(faculty);
+    addComponent(QuserdbtoolsUI.questionize(faculty,
+        "Faculty of the institute/affiliation. University affiliations like QBiC "
+            + "that are neither part of Medical nor Science Faculty belong to Central Units. "
+            + "For non-university affiliations select Other.",
+        "Faculty"));
 
     contactPerson = new ComboBox("Contact Person", personMap.keySet());
     contactPerson.setWidth("300px");
     contactPerson.setFilteringMode(FilteringMode.CONTAINS);
     contactPerson.setStyleName(ValoTheme.COMBOBOX_SMALL);
     // contactPerson.setRequired(true);
-    addComponent(contactPerson);
+    addComponent(QuserdbtoolsUI.questionize(contactPerson,
+        "Main contact person of this affiliation.", "Contact Person"));
 
     head = new ComboBox("Head", personMap.keySet());
     head.setWidth("300px");
     head.setFilteringMode(FilteringMode.CONTAINS);
     // head.setRequired(true);
     head.setStyleName(ValoTheme.COMBOBOX_SMALL);
-    addComponent(head);
+    addComponent(QuserdbtoolsUI.questionize(head, "Head of this affiliation.", "Head"));
 
     street = new TextField("Street");
     street.setWidth("300px");
@@ -139,6 +154,9 @@ public class AffiliationInput extends FormLayout {
   }
 
   public Affiliation getAffiliation() {
+    String inst = null;
+    if (institute.getValue() != null)
+      inst = institute.getValue().toString();
     String contact = null;
     if (contactPerson.getValue() != null)
       contact = contactPerson.getValue().toString();
@@ -148,13 +166,11 @@ public class AffiliationInput extends FormLayout {
 
     int contactID = mapPersonToID(contact);
     int headID = mapPersonToID(headPerson);
-    System.out.println(contactID);
-    System.out.println(headID);
 
     String fac = faculty.getValue().toString();
-    return new Affiliation(groupName.getValue(), acronym.getValue(), organization.getValue(),
-        institute.getValue(), fac, contactID, headID, street.getValue(), zipCode.getValue(),
-        city.getValue(), country.getValue(), webpage.getValue());
+    return new Affiliation(groupName.getValue(), acronym.getValue(), organization.getValue(), inst,
+        fac, contactID, headID, street.getValue(), zipCode.getValue(), city.getValue(),
+        country.getValue(), webpage.getValue());
   }
 
   public void autoComplete(Affiliation affiliation) {
@@ -167,7 +183,7 @@ public class AffiliationInput extends FormLayout {
     country.setValue(affiliation.getCountry());
   }
 
-  public TextField getInstituteField() {
+  public ComboBox getInstituteField() {
     return institute;
   }
 
