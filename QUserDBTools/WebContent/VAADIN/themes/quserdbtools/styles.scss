@@ -1,0 +1,9 @@
+@import "addons.scss";
+@import "quserdbtools.scss";
+
+/* This file prefixes all rules with the theme name to avoid causing conflicts with other themes. */
+/* The actual styles should be defined in quserdbtools.scss */
+.quserdbtools {
+  @include addons;
+  @include quserdbtools;
+}
