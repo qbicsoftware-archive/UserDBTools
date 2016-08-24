@@ -1,19 +1,17 @@
 /*******************************************************************************
  * QBiC User DB Tools enables users to add people and affiliations to our mysql user database.
- * Copyright (C) 2016  Andreas Friedrich
+ * Copyright (C) 2016 Andreas Friedrich
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <http://www.gnu.org/licenses/>.
  *******************************************************************************/
 package db;
 
@@ -35,8 +33,10 @@ import java.util.Set;
 
 import logging.Log4j2Logger;
 import model.Affiliation;
+import model.CollaboratorWithResponsibility;
 import model.Person;
 import model.PersonAffiliationConnectionInfo;
+import model.ProjectInfo;
 import model.RoleAt;
 
 public class DBManager {
@@ -179,14 +179,14 @@ public class DBManager {
   public void addOrChangeSecondaryNameForProject(String projectCode, String secondaryName) {
     logger
         .info("Adding/Updating secondary name of projects " + projectCode + " to " + secondaryName);
-    String sql = "UPDATE projects SET secondary_name=? WHERE tutorial_id=?";
-    // String sql = "INSERT INTO projects (pi_id, project_code) VALUES(?, ?)";
+    // TODO not safe for projects in multiple spaces, which is currently impossible
+    String sql = "UPDATE projects SET short_title = ? WHERE openbis_project_identifier LIKE ?";
     Connection conn = login();
     PreparedStatement statement = null;
     try {
       statement = conn.prepareStatement(sql);
-      statement.setString(2, projectCode);
-      statement.setString(3, secondaryName);
+      statement.setString(1, secondaryName);
+      statement.setString(2, "%" + projectCode);
       statement.execute();
       logger.info("Successful.");
     } catch (SQLException e) {
@@ -362,27 +362,92 @@ public class DBManager {
     return res;
   }
 
-  public void addPersonToProject(int projectID, int personID, String role) {
+  public void addOrUpdatePersonToProject(int projectID, int personID, String role) {
     if (!hasPersonRoleInProject(personID, projectID, role)) {
       logger.info("Trying to add person with role " + role + " to a project.");
-      String sql =
-          "INSERT INTO projects_persons (project_id, person_id, project_role) VALUES(?, ?, ?)";
-      Connection conn = login();
-      PreparedStatement statement = null;
-      try {
-        statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-        statement.setInt(1, projectID);
-        statement.setInt(2, personID);
-        statement.setString(3, role);
-        statement.execute();
-        logger.info("Successful.");
-      } catch (SQLException e) {
-        logger.error("SQL operation unsuccessful: " + e.getMessage());
-        e.printStackTrace();
-      } finally {
-        endQuery(conn, statement);
+      if (!roleForProjectTaken(projectID, role)) {
+        logger.info("Role " + role + " is not yet taken.");
+        String sql =
+            "INSERT INTO projects_persons (project_id, person_id, project_role) VALUES(?, ?, ?)";
+        Connection conn = login();
+        PreparedStatement statement = null;
+        try {
+          statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+          statement.setInt(1, projectID);
+          statement.setInt(2, personID);
+          statement.setString(3, role);
+          statement.execute();
+          logger.info("Successful.");
+        } catch (SQLException e) {
+          logger.error("SQL operation unsuccessful: " + e.getMessage());
+          e.printStackTrace();
+        } finally {
+          endQuery(conn, statement);
+        }
+      } else {
+        logger.info("Role " + role + " is taken. Updating to new person.");
+        String sql =
+            "UPDATE projects_persons SET person_id = ? WHERE project_id = ? AND project_role = ?;";
+        Connection conn = login();
+        PreparedStatement statement = null;
+        try {
+          statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+          statement.setInt(1, personID);
+          statement.setInt(2, projectID);
+          statement.setString(3, role);
+          statement.execute();
+          logger.info("Successful.");
+        } catch (SQLException e) {
+          logger.error("SQL operation unsuccessful: " + e.getMessage());
+          e.printStackTrace();
+        } finally {
+          endQuery(conn, statement);
+        }
       }
     }
+  }
+
+  private boolean roleForProjectTaken(int projectID, String role) {
+    boolean res = false;
+    String sql = "SELECT person_ID FROM projects_persons WHERE project_id = ? AND project_role = ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, projectID);
+      statement.setString(2, role);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        res = true;
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
+  }
+
+  private boolean roleForExperimentTaken(int experimentID, String role) {
+    boolean res = false;
+    String sql =
+        "SELECT person_ID FROM experiments_persons WHERE experiment_id = ? AND experiment_role = ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, experimentID);
+      statement.setString(2, role);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        res = true;
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
   }
 
   public void printPeople() {
@@ -808,7 +873,9 @@ public class DBManager {
       statement = conn.prepareStatement(sql);
       ResultSet rs = statement.executeQuery();
       while (rs.next()) {
-        res.add(rs.getString("institute"));
+        String inst = rs.getString("institute");
+        if (inst != null)
+          res.add(inst);
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -925,6 +992,8 @@ public class DBManager {
         String organization = rs.getString("umbrella_organization");
         String faculty = rs.getString("faculty");
         String institute = rs.getString("institute");
+        if (institute == null)
+          institute = "";
         String street = rs.getString("street");
         String zipCode = rs.getString("zip_code");
         String city = rs.getString("city");
@@ -1001,6 +1070,12 @@ public class DBManager {
     return details;
   }
 
+  /**
+   * returns multiple person objects if they have multiple affiliations
+   * 
+   * @param personID
+   * @return
+   */
   public List<Person> getPersonWithAffiliations(Integer personID) {
     List<Person> res = new ArrayList<Person>();
     String lnk = "persons_organizations";
@@ -1094,6 +1169,386 @@ public class DBManager {
       e.printStackTrace();
     } finally {
       endQuery(null, statement);
+    }
+  }
+
+  public List<Person> getPersonsContaining(String personQuery) {
+    List<Person> res = new ArrayList<Person>();
+
+    String sql = "SELECT * from persons where first_name LIKE ? OR family_name LIKE ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setString(1, "%" + personQuery + "%");
+      statement.setString(2, "%" + personQuery + "%");
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        int id = rs.getInt("id");
+        res.add(getPersonWithAffiliations(id).get(0));
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
+  }
+
+  public List<Affiliation> getAffiliationsContaining(String affiQuery) {
+    List<Affiliation> res = new ArrayList<Affiliation>();
+
+    String sql =
+        "SELECT * from organizations where group_name LIKE ? OR group_acronym LIKE ? OR umbrella_organization LIKE ? "
+            + "or institute LIKE ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      for (int i = 1; i < 5; i++)
+        statement.setString(i, "%" + affiQuery + "%");
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        int id = rs.getInt("id");
+        String groupName = rs.getString("group_name");
+        String acronym = rs.getString("group_acronym");
+        if (acronym == null)
+          acronym = "";
+        String organization = rs.getString("umbrella_organization");
+        String faculty = rs.getString("faculty");
+        String institute = rs.getString("institute");
+        if (institute == null)
+          institute = "";
+        String street = rs.getString("street");
+        String zipCode = rs.getString("zip_code");
+        String city = rs.getString("city");
+        String country = rs.getString("country");
+        String webpage = rs.getString("webpage");
+        int contactID = rs.getInt("main_contact");
+        int headID = rs.getInt("head");
+        String contact = null;
+        String head = null;
+        if (contactID > 0) {
+          Person c = getPerson(contactID);
+          contact = c.getFirst() + " " + c.getLast();
+        }
+        if (headID > 0) {
+          Person h = getPerson(headID);
+          head = h.getFirst() + " " + h.getLast();
+        }
+        res.add(new Affiliation(id, groupName, acronym, organization, institute, faculty, contact,
+            head, street, zipCode, city, country, webpage));
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
+  }
+
+  public Map<String, ProjectInfo> getProjectMap() {
+    Map<String, ProjectInfo> res = new HashMap<String, ProjectInfo>();
+    // since there are at the moment 2 different roles, this query will return two rows per project
+    String sql =
+        "SELECT projects.*, projects.id, projects_persons.*, persons.first_name, persons.family_name FROM projects INNER JOIN projects_persons ON "
+            + "projects.id = projects_persons.project_id INNER JOIN persons ON projects_persons.person_id = persons.id";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        String[] openbisIDSplit = rs.getString("openbis_project_identifier").split("/");
+        String project = openbisIDSplit[2];
+        String role = rs.getString("project_role");
+        String name = rs.getString("first_name") + " " + rs.getString("family_name");
+        if (!res.containsKey(project)) {
+          // first result row
+          String space = openbisIDSplit[1];
+          int id = rs.getInt("project_id");
+          String shortName = rs.getString("short_title");
+          res.put(project, new ProjectInfo(space, project, shortName, id));
+        }
+        // setting person in first and second result row
+        if (role.equals("PI"))
+          res.get(project).setInvestigator(name);
+        else
+          res.get(project).setContact(name);
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    // now we need to add all projects without person connections
+    sql =
+        "SELECT t1.* FROM projects t1 LEFT JOIN projects_persons t2 ON t1.id = t2.project_id WHERE t2.project_id IS NULL";
+    conn = login();
+    statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        String[] openbisIDSplit = rs.getString("openbis_project_identifier").split("/");
+        String project = openbisIDSplit[2];
+        String space = openbisIDSplit[1];
+        int id = rs.getInt("id");
+        String shortName = rs.getString("short_title");
+        res.put(project, new ProjectInfo(space, project, shortName, id));
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
+  }
+
+  public List<CollaboratorWithResponsibility> getCollaboratorsOfProject(String project) {
+    List<CollaboratorWithResponsibility> res = new ArrayList<CollaboratorWithResponsibility>();
+    // for experiments
+    String sql =
+        "SELECT experiments.*, experiments.id, experiments_persons.*, persons.first_name, persons.family_name FROM experiments INNER JOIN experiments_persons ON "
+            + "experiments.id = experiments_persons.experiment_id INNER JOIN persons ON experiments_persons.person_id = persons.id "
+            + "WHERE openbis_experiment_identifier LIKE ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setString(1, "%" + project + "%");
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        String openbisID = rs.getString("openbis_experiment_identifier");
+        String[] openbisIDSplit = openbisID.split("/");
+        int id = rs.getInt("experiments.id");
+        String exp = openbisIDSplit[3];
+        String role = rs.getString("experiment_role");
+        String name = rs.getString("first_name") + " " + rs.getString("family_name");
+        res.add(new CollaboratorWithResponsibility(id, name, openbisID, exp, role));
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    // now we need to add all projects without person connections
+    // sql =
+    // "SELECT t1.* FROM experiments t1 LEFT JOIN experiments_persons t2 ON t1.id = t2.experiment_id
+    // WHERE t2.experiment_id IS NULL";
+    // conn = login();
+    // statement = null;
+    // try {
+    // statement = conn.prepareStatement(sql);
+    // ResultSet rs = statement.executeQuery();
+    // while (rs.next()) {
+    // String[] openbisIDSplit = rs.getString("openbis_experiment_identifier").split("/");
+    // int id = rs.getInt("experiments.id");
+    // String exp = openbisIDSplit[3];
+    // String role = rs.getString("experiment_role");
+    // String name = rs.getString("first_name") + " " + rs.getString("family_name");
+    // res.add(new CollaboratorWithResponsibility(id, name, exp, role));
+    // }
+    // } catch (SQLException e) {
+    // e.printStackTrace();
+    // } finally {
+    // endQuery(conn, statement);
+    // }
+    return res;
+  }
+
+  public int addExperimentToDB(String openbisIdentifier) {
+    int exists = isExpInDB(openbisIdentifier);
+    if (exists < 0) {
+      logger.info("Trying to add experiment " + openbisIdentifier + " to the person DB");
+      String sql = "INSERT INTO experiments (openbis_experiment_identifier) VALUES(?)";
+      Connection conn = login();
+      try (PreparedStatement statement =
+          conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        statement.setString(1, openbisIdentifier);
+        statement.execute();
+        ResultSet rs = statement.getGeneratedKeys();
+        if (rs.next()) {
+          logout(conn);
+          logger.info("Successful.");
+          return rs.getInt(1);
+        }
+      } catch (SQLException e) {
+        logger.error("SQL operation unsuccessful: " + e.getMessage());
+        e.printStackTrace();
+      }
+      logout(conn);
+      return -1;
+    }
+    return exists;
+  }
+
+  private int isExpInDB(String id) {
+    logger.info("Looking for experiment " + id + " in the DB");
+    String sql = "SELECT * from experiments WHERE openbis_experiment_identifier = ?";
+    int res = -1;
+    Connection conn = login();
+    try {
+      PreparedStatement statement = conn.prepareStatement(sql);
+      statement.setString(1, id);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        logger.info("project found!");
+        res = rs.getInt("id");
+      }
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    }
+    logout(conn);
+    return res;
+  }
+
+  public void addPersonToExperiment(int expID, int personID, String role) {
+    if (expID == 0 || personID == 0)
+      return;
+
+    if (!hasPersonRoleInExperiment(personID, expID, role)) {
+      logger.info("Trying to add person with role " + role + " to an experiment.");
+      String sql =
+          "INSERT INTO experiments_persons (experiment_id, person_id, experiment_role) VALUES(?, ?, ?)";
+      Connection conn = login();
+      try (PreparedStatement statement =
+          conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        statement.setInt(1, expID);
+        statement.setInt(2, personID);
+        statement.setString(3, role);
+        statement.execute();
+        logger.info("Successful.");
+      } catch (SQLException e) {
+        logger.error("SQL operation unsuccessful: " + e.getMessage());
+        e.printStackTrace();
+      }
+      logout(conn);
+    }
+  }
+
+  private boolean hasPersonRoleInExperiment(int personID, int expID, String role) {
+    logger.info("Checking if person already has this role in the experiment.");
+    String sql =
+        "SELECT * from experiments_persons WHERE person_id = ? AND experiment_id = ? and experiment_role = ?";
+    boolean res = false;
+    Connection conn = login();
+    try {
+      PreparedStatement statement = conn.prepareStatement(sql);
+      statement.setInt(1, personID);
+      statement.setInt(2, expID);
+      statement.setString(3, role);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        res = true;
+        logger.info("person already has this role!");
+      }
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    }
+    logout(conn);
+    return res;
+  }
+
+  public int getProjectIDFromCode(String code) {
+    int res = -1;
+    String sql = "SELECT id from projects WHERE openbis_project_identifier LIKE ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setString(1, "%" + code);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        res = rs.getInt("id");
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
+  }
+
+  public void removePersonFromProject(int id, String role) {
+    logger.info("Trying to remove person with role " + role + " from project with id " + id);
+    String sql = "DELETE FROM projects_persons WHERE project_id = ? AND project_role = ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, id);
+      statement.setString(2, role);
+      statement.executeQuery();
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+  }
+
+  public void removePersonFromExperiment(int experimentID) {
+    logger.info("Trying to remove person from experiment with id " + experimentID);
+    String sql = "DELETE FROM experiments_persons WHERE experiment_id = ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, experimentID);
+      statement.executeQuery();
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+  }
+
+  public void addOrUpdatePersonToExperiment(int experimentID, int personID, String role) {
+    if (!hasPersonRoleInExperiment(personID, experimentID, role)) {
+      logger.info("Trying to add person with role " + role + " to an experiment.");
+      if (!roleForExperimentTaken(experimentID, role)) {
+        logger.info("Role " + role + " is not yet taken.");
+        String sql =
+            "INSERT INTO experiments_persons (experiment_id, person_id, experiment_role) VALUES(?, ?, ?)";
+        Connection conn = login();
+        PreparedStatement statement = null;
+        try {
+          statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+          statement.setInt(1, experimentID);
+          statement.setInt(2, personID);
+          statement.setString(3, role);
+          statement.execute();
+          logger.info("Successful.");
+        } catch (SQLException e) {
+          logger.error("SQL operation unsuccessful: " + e.getMessage());
+          e.printStackTrace();
+        } finally {
+          endQuery(conn, statement);
+        }
+      } else {
+        logger.info("Role " + role + " is taken. Updating to new person.");
+        String sql =
+            "UPDATE experiments_persons SET person_id = ? WHERE experiment_id = ? AND experiment_role = ?;";
+        Connection conn = login();
+        PreparedStatement statement = null;
+        try {
+          statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+          statement.setInt(1, personID);
+          statement.setInt(2, experimentID);
+          statement.setString(3, role);
+          statement.execute();
+          logger.info("Successful.");
+        } catch (SQLException e) {
+          logger.error("SQL operation unsuccessful: " + e.getMessage());
+          e.printStackTrace();
+        } finally {
+          endQuery(conn, statement);
+        }
+      }
     }
   }
 }

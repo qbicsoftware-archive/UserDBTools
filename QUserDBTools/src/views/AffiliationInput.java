@@ -17,17 +17,14 @@
  *******************************************************************************/
 package views;
 
-import helpers.Helpers;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import logging.Log4j2Logger;
 import model.Affiliation;
-import qdbtools.main.QuserdbtoolsUI;
+import model.Styles;
 
-import com.vaadin.data.validator.RegexpValidator;
 import com.vaadin.shared.ui.combobox.FilteringMode;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.ComboBox;
@@ -72,7 +69,7 @@ public class AffiliationInput extends FormLayout {
 
     acronym = new TextField("Acronym");
     acronym.setWidth("300px");
-    addComponent(QuserdbtoolsUI.questionize(acronym,
+    addComponent(Styles.questionize(acronym,
         "Short acronym of the lowest level of this affiliation, "
             + "e.g. of the group if specified or of the institute if group field is left empty.",
         "Acronym"));
@@ -90,14 +87,14 @@ public class AffiliationInput extends FormLayout {
     institute.setStyleName(ValoTheme.COMBOBOX_SMALL);
     institute.setFilteringMode(FilteringMode.CONTAINS);
     // institute.setRequired(true);
-    addComponent(QuserdbtoolsUI.questionize(institute,
+    addComponent(Styles.questionize(institute,
         "Select existing institutes or input a new one.", "Institute"));
 
     faculty = new ComboBox("Faculty", faculties);
     faculty.setRequired(true);
     faculty.setStyleName(ValoTheme.COMBOBOX_SMALL);
     faculty.setWidth("300px");
-    addComponent(QuserdbtoolsUI.questionize(faculty,
+    addComponent(Styles.questionize(faculty,
         "Faculty of the institute/affiliation. University affiliations like QBiC "
             + "that are neither part of Medical nor Science Faculty belong to Central Units. "
             + "For non-university affiliations select Other.",
@@ -108,7 +105,7 @@ public class AffiliationInput extends FormLayout {
     contactPerson.setFilteringMode(FilteringMode.CONTAINS);
     contactPerson.setStyleName(ValoTheme.COMBOBOX_SMALL);
     // contactPerson.setRequired(true);
-    addComponent(QuserdbtoolsUI.questionize(contactPerson,
+    addComponent(Styles.questionize(contactPerson,
         "Main contact person of this affiliation.", "Contact Person"));
 
     head = new ComboBox("Head", personMap.keySet());
@@ -116,7 +113,7 @@ public class AffiliationInput extends FormLayout {
     head.setFilteringMode(FilteringMode.CONTAINS);
     // head.setRequired(true);
     head.setStyleName(ValoTheme.COMBOBOX_SMALL);
-    addComponent(QuserdbtoolsUI.questionize(head, "Head of this affiliation.", "Head"));
+    addComponent(Styles.questionize(head, "Head of this affiliation.", "Head"));
 
     street = new TextField("Street");
     street.setWidth("300px");
@@ -140,8 +137,9 @@ public class AffiliationInput extends FormLayout {
 
     webpage = new TextField("Webpage");
     webpage.setWidth("300px");
-    webpage.addValidator(
-        new RegexpValidator(Helpers.VALID_URL_REGEX, "This is not a valid web page format."));
+    //TODO webpage formats are difficult
+//    webpage.addValidator(
+//        new RegexpValidator(Helpers.VALID_URL_REGEX, "This is not a valid web page format."));
     addComponent(webpage);
 
     commit = new Button("Register Affiliation");

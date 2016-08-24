@@ -28,9 +28,8 @@ import com.vaadin.ui.ComboBox;
 import com.vaadin.ui.FormLayout;
 import com.vaadin.ui.themes.ValoTheme;
 
-import model.Person;
+import model.Styles;
 import model.Tuple;
-import qdbtools.main.QuserdbtoolsUI;
 
 public class AffiliationVIPTab extends FormLayout {
 
@@ -97,7 +96,7 @@ public class AffiliationVIPTab extends FormLayout {
     addComponent(head);
     addComponent(contact);
     commitAffiTabButton.setIcon(FontAwesome.SAVE);
-    addComponent(QuserdbtoolsUI.questionize(commitAffiTabButton,
+    addComponent(Styles.questionize(commitAffiTabButton,
         "Add or change records to the selected people. "
             + "Existing people can only be replaced by a new selection, empty selections are ignored.",
         "Save Changes"));

@@ -1,0 +1,78 @@
+package model;
+
+public class ProjectInfo {
+
+  private String space;
+  private String projectCode;
+  private String projectName;
+  private int projectID;
+  private String investigator;
+  private String contact;
+
+  public ProjectInfo(String space, String projectCode, String projectName, int projectID,
+      String investigator, String contact) {
+    super();
+    this.space = space;
+    this.projectCode = projectCode;
+    this.projectName = projectName;
+    this.projectID = projectID;
+    this.investigator = investigator;
+    this.contact = contact;
+  }
+
+  public ProjectInfo(String space, String project, String shortName, int id) {
+    super();
+    this.space = space;
+    this.projectCode = project;
+    this.projectName = shortName;
+    this.projectID = id;
+  }
+
+  public String getSpace() {
+    return space;
+  }
+
+  public String getProjectCode() {
+    return projectCode;
+  }
+
+  public String getProjectName() {
+    return projectName;
+  }
+
+  public int getProjectID() {
+    return projectID;
+  }
+
+  public String getInvestigator() {
+//    if (investigator == null)
+//      return "";
+//    else
+      return investigator;
+  }
+
+  public String getContact() {
+//    if (contact == null)
+//      return "";
+//    else
+      return contact;
+  }
+
+  public void setContact(String name) {
+    this.contact = name;
+  }
+
+  public void setInvestigator(String name) {
+    this.investigator = name;
+  }
+
+  public void setProjectName(String newName) {
+    this.projectName = newName;
+  }
+  
+  @Override
+  public String toString() {
+    return projectCode + " ("+projectName+")";
+  }
+
+}

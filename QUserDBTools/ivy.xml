@@ -40,7 +40,9 @@
 		<!-- Compiler for custom widget sets. Should not be deployed -->
 		<dependency org="com.vaadin" name="vaadin-client-compiler"
 			rev="&vaadin.version;" conf="widgetset-compile->default" />
-			
+		
+		<!-- filter table -->	
+		<dependency org="org.vaadin.addons" name="filteringtable" rev="0.9.11.v7" />
 		<!-- logging -->
 		<dependency org="org.apache.logging.log4j" name="log4j-api" rev="2.2" />
   		<dependency org="org.apache.logging.log4j" name="log4j-core" rev="2.2" />
