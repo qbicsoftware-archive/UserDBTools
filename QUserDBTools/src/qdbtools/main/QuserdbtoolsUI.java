@@ -43,6 +43,7 @@ import views.PersonInput;
 import views.ProjectView;
 import views.SearchView;
 
+import com.liferay.portal.model.User;
 import com.liferay.portal.model.UserGroup;
 import com.vaadin.annotations.Theme;
 import com.vaadin.annotations.VaadinServletConfiguration;
@@ -102,10 +103,9 @@ public class QuserdbtoolsUI extends UI {
     // establish connection to the OpenBIS API
     if (!isDevelopment() || !testMode) {
       try {
-        logger.debug("trying to connect to openbis");
+        logger.debug("DB Tools started, connecting to openBIS.");
         this.openbis = new OpenBisClient(config.getOpenbisUser(), config.getOpenbisPass(),
             config.getOpenbisURL());
-        System.out.println("logging in");
         this.openbis.login();
       } catch (Exception e) {
         // success = false;
@@ -235,10 +235,11 @@ public class QuserdbtoolsUI extends UI {
 
   private boolean canUsePortlet() {
     try {
-      for (UserGroup grp : LiferayAndVaadinUtils.getUser().getUserGroups()) {
-        String name = grp.getName();
-        if (config.getUserGrps().contains(name)) {
-          logger.info("User can use portlet because he is part of " + name);
+      User user = LiferayAndVaadinUtils.getUser();
+      for (UserGroup grp : user.getUserGroups()) {
+        String group = grp.getName();
+        if (config.getUserGrps().contains(group)) {
+          logger.info("User "+user.getScreenName()+" can use portlet because they are part of " + group);
           return true;
         }
       }
@@ -254,10 +255,11 @@ public class QuserdbtoolsUI extends UI {
       return true;
     else {
       try {
-        for (UserGroup grp : LiferayAndVaadinUtils.getUser().getUserGroups()) {
-          String name = grp.getName();
-          if (config.getAdminGrps().contains(name)) {
-            logger.info("User has full rights because he is part of " + name);
+        User user = LiferayAndVaadinUtils.getUser();
+        for (UserGroup grp : user.getUserGroups()) {
+          String group = grp.getName();
+          if (config.getAdminGrps().contains(group)) {
+            logger.info("User "+user.getScreenName()+" has full rights because they are part of " + group);
             return true;
           }
         }
@@ -524,7 +526,8 @@ public class QuserdbtoolsUI extends UI {
   }
 
   private void successfulCommit() {
-    Styles.notification("Data added", "Data has been successfully added to the database!", NotificationType.SUCCESS);
+    Styles.notification("Data added", "Data has been successfully added to the database!",
+        NotificationType.SUCCESS);
     // wait a bit and reload tabs
     try {
       Thread.sleep(1000);
@@ -536,7 +539,8 @@ public class QuserdbtoolsUI extends UI {
   }
 
   private void inputError() {
-    Styles.notification("Data Incomplete", "Please fill in all required fields correctly.", NotificationType.DEFAULT);
+    Styles.notification("Data Incomplete", "Please fill in all required fields correctly.",
+        NotificationType.DEFAULT);
   }
 
   private void commitError(String reason) {
