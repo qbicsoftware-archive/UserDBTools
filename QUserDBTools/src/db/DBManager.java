@@ -1290,12 +1290,18 @@ public class DBManager {
       statement = conn.prepareStatement(sql);
       ResultSet rs = statement.executeQuery();
       while (rs.next()) {
-        String[] openbisIDSplit = rs.getString("openbis_project_identifier").split("/");
-        String project = openbisIDSplit[2];
-        String space = openbisIDSplit[1];
-        int id = rs.getInt("id");
-        String shortName = rs.getString("short_title");
-        res.put(project, new ProjectInfo(space, project, shortName, id));
+        String projID = rs.getString("openbis_project_identifier");
+        String[] openbisIDSplit = projID.split("/");
+        try {
+          String project = openbisIDSplit[2];
+          String space = openbisIDSplit[1];
+          int id = rs.getInt("id");
+          String shortName = rs.getString("short_title");
+          res.put(project, new ProjectInfo(space, project, shortName, id));
+        } catch (Exception e) {
+          logger.error("Could not parse project from openbis identifier " + projID
+              + ". It seems this database entry is incorrect. Ignoring project.");
+        }
       }
     } catch (SQLException e) {
       e.printStackTrace();
