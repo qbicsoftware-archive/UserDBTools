@@ -6,7 +6,7 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:noNamespaceSchemaLocation="http://ant.apache.org/ivy/schemas/ivy.xsd">
 	<info organisation="com.example" module="v7proj" />
-	<configurations>
+	<configurations defaultconf="default" defaultconfmapping="default->default">
 		<!-- The default configuration, which should be deployed to the server -->
 		<conf name="default" />
 		<!-- A configuration only needed when compiling the widget set. Should 
@@ -40,6 +40,12 @@
 		<!-- Compiler for custom widget sets. Should not be deployed -->
 		<dependency org="com.vaadin" name="vaadin-client-compiler"
 			rev="&vaadin.version;" conf="widgetset-compile->default" />
+		<!-- QBiC -->
+		<!--<dependency org="life.qbic" name="collections" rev="0.1-SNAPSHOT" changing="true"/>-->
+		<dependency org="life.qbic.openbis" name="openbisclient" rev="1.1.3" />
+		<!--<dependency org="life.qbic.openbis" name="liferayandvaadinhelpers" rev="1.1.2" />-->
+		<!-- maria db -->
+		<dependency org="org.mariadb.jdbc" name="mariadb-java-client" rev="1.1.7"/>
 		
 		<!-- filter table -->	
 		<dependency org="org.vaadin.addons" name="filteringtable" rev="0.9.11.v7" />
