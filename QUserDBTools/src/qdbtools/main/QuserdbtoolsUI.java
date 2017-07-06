@@ -22,13 +22,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.servlet.annotation.WebServlet;
 
 import ldap.LDAPConfig;
+import life.qbic.openbis.openbisclient.IOpenBisClient;
+import life.qbic.openbis.openbisclient.OpenBisClient;
+import life.qbic.openbis.openbisclient.OpenBisClientMock;
 import logging.Log4j2Logger;
-import main.IOpenBisClient;
-import main.OpenBisClientMock;
 import model.Affiliation;
 import model.CollaboratorWithResponsibility;
 import model.Person;
@@ -103,7 +105,6 @@ public class QuserdbtoolsUI extends UI {
     // establish connection to the OpenBIS API
     if (!isDevelopment() || !testMode) {
       try {
-        logger.debug("DB Tools started, connecting to openBIS.");
         this.openbis = new OpenBisClient(config.getOpenbisUser(), config.getOpenbisPass(),
             config.getOpenbisURL());
         this.openbis.login();
@@ -148,20 +149,23 @@ public class QuserdbtoolsUI extends UI {
 
       affiMap = dbControl.getAffiliationMap();
       personMap = dbControl.getPersonMap();
-
+      Set<String> instituteNames = dbControl.getInstituteNames();
+      List<String> facultyEnums =
+          dbControl.getPossibleEnumsForColumnsInTable("organizations", "faculty");
       List<String> affiliationRoles =
           dbControl.getPossibleEnumsForColumnsInTable("persons_organizations", "occupation");
-      AffiliationInput addAffilTab = new AffiliationInput(dbControl.getInstituteNames(),
-          dbControl.getPossibleEnumsForColumnsInTable("organizations", "faculty"), personMap);
-      options.addTab(addAffilTab, "New Affiliation");
 
       PersonInput addUserTab =
           new PersonInput(dbControl.getPossibleEnumsForColumnsInTable("persons", "title"), affiMap,
-              affiliationRoles);
+              affiliationRoles, new AffiliationInput(instituteNames, facultyEnums, personMap));
       options.addTab(addUserTab, "New Person");
 
+      AffiliationInput addAffilTab = new AffiliationInput(instituteNames, facultyEnums, personMap);
+      options.addTab(addAffilTab, "New Affiliation");
+
+
       SearchView searchView = new SearchView();
-      options.addTab(searchView, "Existing Entries");
+      options.addTab(searchView, "Search Entries");
 
       List<Affiliation> affiTable = dbControl.getAffiliationTable();
       Map<Integer, Tuple> affiPeople = new HashMap<Integer, Tuple>();
@@ -202,11 +206,12 @@ public class QuserdbtoolsUI extends UI {
       }
       Map<String, ProjectInfo> allProjects = dbControl.getProjectMap();
       for (Project p : openbisProjects) {
+        String projectID = p.getIdentifier();
         String code = p.getCode();
-        if (allProjects.get(code) == null)
-          userProjects.put(code, new ProjectInfo(p.getSpaceCode(), code, "", -1));
+        if (allProjects.get(projectID) == null)
+          userProjects.put(projectID, new ProjectInfo(p.getSpaceCode(), code, "", -1));
         else
-          userProjects.put(code, allProjects.get(code));
+          userProjects.put(projectID, allProjects.get(projectID));
       }
 
       ProjectView projectView = new ProjectView(userProjects.values(), openbis, personMap);
@@ -239,7 +244,8 @@ public class QuserdbtoolsUI extends UI {
       for (UserGroup grp : user.getUserGroups()) {
         String group = grp.getName();
         if (config.getUserGrps().contains(group)) {
-          logger.info("User "+user.getScreenName()+" can use portlet because they are part of " + group);
+          logger.info("User " + user.getScreenName() + " can use portlet because they are part of "
+              + group);
           return true;
         }
       }
@@ -259,7 +265,8 @@ public class QuserdbtoolsUI extends UI {
         for (UserGroup grp : user.getUserGroups()) {
           String group = grp.getName();
           if (config.getAdminGrps().contains(group)) {
-            logger.info("User "+user.getScreenName()+" has full rights because they are part of " + group);
+            logger.info("User " + user.getScreenName()
+                + " has full rights because they are part of " + group);
             return true;
           }
         }
@@ -334,7 +341,7 @@ public class QuserdbtoolsUI extends UI {
             id = dbControl.addProjectToDB("/" + info.getSpace() + "/" + code,
                 info.getProjectName());
           else
-            dbControl.addOrChangeSecondaryNameForProject(code, info.getProjectName());
+            dbControl.addOrChangeSecondaryNameForProject(id, info.getProjectName());
           if (info.getInvestigator() == null || info.getInvestigator().isEmpty())
             dbControl.removePersonFromProject(id, "PI");
           else
@@ -343,6 +350,10 @@ public class QuserdbtoolsUI extends UI {
             dbControl.removePersonFromProject(id, "Contact");
           else
             dbControl.addOrUpdatePersonToProject(id, personMap.get(info.getContact()), "Contact");
+          if (info.getManager() == null || info.getManager().isEmpty())
+            dbControl.removePersonFromProject(id, "Manager");
+          else
+            dbControl.addOrUpdatePersonToProject(id, personMap.get(info.getManager()), "Manager");
           projects.updateChangedInfo(info);
         }
       }
@@ -368,19 +379,25 @@ public class QuserdbtoolsUI extends UI {
       }
     });;
 
-
-    search.getSearchButton().addClickListener(new Button.ClickListener() {
-
+    search.getSearchAffiliationButton().addClickListener(new Button.ClickListener() {
       @Override
       public void buttonClick(ClickEvent event) {
         String affi = search.getAffiliationSearchField().getValue();
+        if (affi != null && !affi.isEmpty()) {
+          search.setAffiliations(dbControl.getAffiliationsContaining(affi));
+        } else
+          search.setAffiliations(new ArrayList<Affiliation>());
+      }
+    });
+
+    search.getSearchPersonButton().addClickListener(new Button.ClickListener() {
+      @Override
+      public void buttonClick(ClickEvent event) {
         String person = search.getPersonSearchField().getValue();
         if (person != null && !person.isEmpty()) {
           search.setPersons(dbControl.getPersonsContaining(person));
-        }
-        if (affi != null && !affi.isEmpty()) {
-          search.setAffiliations(dbControl.getAffiliationsContaining(affi));
-        }
+        } else
+          search.setPersons(new ArrayList<Person>());
       }
     });
 
@@ -389,7 +406,7 @@ public class QuserdbtoolsUI extends UI {
       @Override
       public void buttonClick(ClickEvent event) {
         if (addAffilTab.isValid()) {
-          if (dbControl.addNewAffiliation(addAffilTab.getAffiliation()))
+          if (dbControl.addNewAffiliation(addAffilTab.getAffiliation()) > -1)
             successfulCommit();
           else
             commitError("There has been an error.");
@@ -416,18 +433,6 @@ public class QuserdbtoolsUI extends UI {
       }
     });
 
-    // addAffilTab.getInstituteField().addBlurListener(new BlurListener() {
-    //
-    // @Override
-    // public void blur(BlurEvent event) {
-    // Object val = addAffilTab.getInstituteField().getValue();
-    // if (val != null) {
-    // Affiliation orgInfo = dbControl.getOrganizationInfosFromInstitute(val.toString());
-    // if (orgInfo != null)
-    // addAffilTab.autoComplete(orgInfo);
-    // }
-    // }
-    // });
     addAffilTab.getInstituteField().addValueChangeListener(new ValueChangeListener() {
 
       @Override
@@ -441,28 +446,30 @@ public class QuserdbtoolsUI extends UI {
       }
     });
 
-    // addAffilTab.getOrganizationField().addBlurListener(new BlurListener() {
-    //
-    // @Override
-    // public void blur(BlurEvent event) {
-    // String val = addAffilTab.getOrganizationField().getValue();
-    // if (!val.isEmpty()) {
-    // Affiliation orgInfo = dbControl.getOrganizationInfosFromOrg(val);
-    // if (orgInfo != null)
-    // addAffilTab.autoComplete(orgInfo);
-    // }
-    // }
-    // });
-
     addUserTab.getCommitButton().addClickListener(new Button.ClickListener() {
 
       @Override
       public void buttonClick(ClickEvent event) {
         if (addUserTab.isValid()) {
-          if (dbControl.addNewPerson(addUserTab.getPerson()))
-            successfulCommit();
-          else
-            commitError("There has been an error.");
+          Person p = addUserTab.getPerson();
+          if (addUserTab.hasNewAffiliation()) {
+            int affiID = dbControl.addNewAffiliation(addUserTab.getNewAffiliation());
+            if (affiID > -1)
+              successfulCommit();
+            else
+              commitError("There has been an error while adding the new affiliation.");
+            p.setAffiliationID(affiID);
+          }
+          if (dbControl.userNameExists(p.getUsername())) {
+            Styles.notification("Person already registered",
+                "A person with the Username you selected is already registered in our database!",
+                NotificationType.ERROR);
+          } else {
+            if (dbControl.addNewPerson(p))
+              successfulCommit();
+            else
+              commitError("There has been an error while adding a new person.");
+          }
         } else
           inputError();
       }
