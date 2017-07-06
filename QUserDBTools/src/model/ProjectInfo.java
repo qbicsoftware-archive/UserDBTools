@@ -8,9 +8,10 @@ public class ProjectInfo {
   private int projectID;
   private String investigator;
   private String contact;
+  private String manager;
 
   public ProjectInfo(String space, String projectCode, String projectName, int projectID,
-      String investigator, String contact) {
+      String investigator, String contact, String manager) {
     super();
     this.space = space;
     this.projectCode = projectCode;
@@ -18,6 +19,7 @@ public class ProjectInfo {
     this.projectID = projectID;
     this.investigator = investigator;
     this.contact = contact;
+    this.manager = manager;
   }
 
   public ProjectInfo(String space, String project, String shortName, int id) {
@@ -58,6 +60,14 @@ public class ProjectInfo {
       return contact;
   }
 
+  public String getManager() {
+    return manager;
+  }
+  
+  public void setManager(String name) {
+    this.manager = name;
+  }
+  
   public void setContact(String name) {
     this.contact = name;
   }

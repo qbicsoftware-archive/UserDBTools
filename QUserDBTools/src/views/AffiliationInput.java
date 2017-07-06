@@ -1,19 +1,17 @@
 /*******************************************************************************
  * QBiC User DB Tools enables users to add people and affiliations to our mysql user database.
- * Copyright (C) 2016  Andreas Friedrich
+ * Copyright (C) 2016 Andreas Friedrich
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <http://www.gnu.org/licenses/>.
  *******************************************************************************/
 package views;
 
@@ -87,8 +85,8 @@ public class AffiliationInput extends FormLayout {
     institute.setStyleName(ValoTheme.COMBOBOX_SMALL);
     institute.setFilteringMode(FilteringMode.CONTAINS);
     // institute.setRequired(true);
-    addComponent(Styles.questionize(institute,
-        "Select existing institutes or input a new one.", "Institute"));
+    addComponent(Styles.questionize(institute, "Select existing institutes or input a new one.",
+        "Institute"));
 
     faculty = new ComboBox("Faculty", faculties);
     faculty.setRequired(true);
@@ -105,8 +103,8 @@ public class AffiliationInput extends FormLayout {
     contactPerson.setFilteringMode(FilteringMode.CONTAINS);
     contactPerson.setStyleName(ValoTheme.COMBOBOX_SMALL);
     // contactPerson.setRequired(true);
-    addComponent(Styles.questionize(contactPerson,
-        "Main contact person of this affiliation.", "Contact Person"));
+    addComponent(Styles.questionize(contactPerson, "Main contact person of this affiliation.",
+        "Contact Person"));
 
     head = new ComboBox("Head", personMap.keySet());
     head.setWidth("300px");
@@ -137,9 +135,9 @@ public class AffiliationInput extends FormLayout {
 
     webpage = new TextField("Webpage");
     webpage.setWidth("300px");
-    //TODO webpage formats are difficult
-//    webpage.addValidator(
-//        new RegexpValidator(Helpers.VALID_URL_REGEX, "This is not a valid web page format."));
+    // TODO webpage formats are difficult
+    // webpage.addValidator(
+    // new RegexpValidator(Helpers.VALID_URL_REGEX, "This is not a valid web page format."));
     addComponent(webpage);
 
     commit = new Button("Register Affiliation");
@@ -200,6 +198,26 @@ public class AffiliationInput extends FormLayout {
 
   public ComboBox getInstituteField() {
     return institute;
+  }
+  
+  public void hideRegisterButton() {
+    commit.setEnabled(false);
+    commit.setVisible(false);
+  }
+
+  public void reset() {
+    groupName.setValue("");
+    acronym.setValue("");
+    organization.setValue("");
+    institute.setValue(institute.getNullSelectionItemId());
+    faculty.setValue(faculty.getNullSelectionItemId());
+    contactPerson.setValue(contactPerson.getNullSelectionItemId());
+    head.setValue(head.getNullSelectionItemId());
+    street.setValue("");
+    zipCode.setValue("");
+    city.setValue("");
+    country.setValue("");
+    webpage.setValue("");
   }
 
 }

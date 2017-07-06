@@ -16,15 +16,18 @@
 package views;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import model.Affiliation;
 import model.Person;
 import model.RoleAt;
 
+import com.vaadin.data.Property.ValueChangeEvent;
+import com.vaadin.data.Property.ValueChangeListener;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.HorizontalLayout;
-import com.vaadin.ui.TabSheet;
 import com.vaadin.ui.Table;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.VerticalLayout;
@@ -32,11 +35,15 @@ import com.vaadin.ui.themes.ValoTheme;
 
 public class SearchView extends VerticalLayout {
 
-  private TextField searchPerson;
-  private TextField searchAffiliation;
-  private Button search;
-  private Table persons;
+  private TextField inputPerson;
+  private TextField inputAffiliation;
+  private Button searchPerson;
+  private Table personsTable;
+  private Table affiliationsOfPerson;
+
+  private Button searchAffiliation;
   private Table affiliations;
+  private Map<Integer, Person> listIDToPerson;
 
   public SearchView() {
     setSpacing(true);
@@ -45,72 +52,128 @@ public class SearchView extends VerticalLayout {
     setCaption("Search for entries in the Database");
     HorizontalLayout searchFields = new HorizontalLayout();
     searchFields.setSpacing(true);
-    searchPerson = new TextField("Search for Person");
-    searchAffiliation = new TextField("Search for Affiliation");
-    searchFields.addComponent(searchPerson);
-    searchFields.addComponent(searchAffiliation);
-    search = new Button("Search");
-    addComponent(searchFields);
-    addComponent(search);
+    inputPerson = new TextField("Search for Person");
+    // searchFields.
+    addComponent(inputPerson);
+    // searchFields.addComponent(inputAffiliation);
+    searchPerson = new Button("Search");
+    // addComponent(searchFields);
+    addComponent(searchPerson);
 
-    persons = new Table("People");
-    persons.setPageLength(1);
-    persons.setStyleName(ValoTheme.TABLE_SMALL);
+    personsTable = new Table("People");
+    personsTable.setPageLength(1);
+    personsTable.setStyleName(ValoTheme.TABLE_SMALL);
     // persons.addContainerProperty("ID", Integer.class, null);
-    persons.addContainerProperty("User", String.class, null);
-    persons.addContainerProperty("Title", String.class, null);
-    persons.addContainerProperty("First", String.class, null);
-    persons.addContainerProperty("Last", String.class, null);
-    persons.addContainerProperty("eMail", String.class, null);
-    persons.addContainerProperty("Phone", String.class, null);
-    persons.addContainerProperty("(1st) Affiliation", String.class, null);
-    persons.addContainerProperty("Role", String.class, null);
-    addComponent(persons);
+    // persons.addContainerProperty("User", String.class, null);
+    personsTable.addContainerProperty("Title", String.class, null);
+    personsTable.addContainerProperty("First", String.class, null);
+    personsTable.addContainerProperty("Last", String.class, null);
+    personsTable.addContainerProperty("eMail", String.class, null);
+    personsTable.addContainerProperty("Phone", String.class, null);
+    // personsTable.addContainerProperty("(1st) Affiliation", String.class, null);
+    // personsTable.addContainerProperty("Role", String.class, null);TODO maybe move this to the
+    // next table
+    addComponent(personsTable);
+    personsTable.setSelectable(true);
+    personsTable.addValueChangeListener(new ValueChangeListener() {
+
+      @Override
+      public void valueChange(ValueChangeEvent event) {
+        affiliationsOfPerson.removeAllItems();
+        affiliationsOfPerson.setVisible(false);
+        Object id = personsTable.getValue();
+        if (id != null) {
+          Person p = listIDToPerson.get(id);
+          affiliationsOfPerson.setCaption("Affiliations of " + p.getFirst() + " " + p.getLast());
+          List<Affiliation> affiliations = p.getAffiliations();
+
+          affiliationsOfPerson.setVisible(true);
+          for (int i = 0; i < affiliations.size(); i++) {
+            int itemId = i;
+            List<Object> row = new ArrayList<Object>();
+            Affiliation a = affiliations.get(i);
+            row.add(a.getGroupName());
+            row.add(a.getOrganization());
+            row.add(a.getInstitute());
+            row.add(a.getFaculty());
+            row.add(a.getStreet());
+            row.add(a.getZipCode());
+            affiliationsOfPerson.addItem(row.toArray(new Object[row.size()]), itemId);
+          }
+          affiliationsOfPerson.setPageLength(affiliations.size());
+        }
+      }
+    });
+
+    affiliationsOfPerson = new Table();
+    affiliationsOfPerson.setVisible(false);
+    affiliationsOfPerson.setStyleName(ValoTheme.TABLE_SMALL);
+    // affiliationsOfPerson.addContainerProperty("ID", Integer.class, null);
+    affiliationsOfPerson.addContainerProperty("Group", String.class, null);
+    // affiliationsOfPerson.addContainerProperty("acronym", String.class, null);
+    affiliationsOfPerson.addContainerProperty("Organization", String.class, null);
+    affiliationsOfPerson.addContainerProperty("Institute", String.class, null);
+    affiliationsOfPerson.addContainerProperty("Faculty", String.class, null);
+    // affiliationsOfPerson.addContainerProperty("contactPerson", String.class, null);
+    affiliationsOfPerson.addContainerProperty("Street", String.class, null);
+    affiliationsOfPerson.addContainerProperty("ZIP", String.class, null);
+    addComponent(affiliationsOfPerson);
+
+    inputAffiliation = new TextField("Search for Affiliation");
+    addComponent(inputAffiliation);
+    searchAffiliation = new Button("Search");
+    addComponent(searchAffiliation);
 
     affiliations = new Table("Affiliations");
     affiliations.setStyleName(ValoTheme.TABLE_SMALL);
     // affiliations.addContainerProperty("ID", Integer.class, null);
-    affiliations.addContainerProperty("group", String.class, null);
+    affiliations.addContainerProperty("Group", String.class, null);
     // affiliations.addContainerProperty("acronym", String.class, null);
-    affiliations.addContainerProperty("organization", String.class, null);
-    affiliations.addContainerProperty("institute", String.class, null);
-    affiliations.addContainerProperty("faculty", String.class, null);
+    affiliations.addContainerProperty("Organization", String.class, null);
+    affiliations.addContainerProperty("Institute", String.class, null);
+    affiliations.addContainerProperty("Faculty", String.class, null);
     // affiliations.addContainerProperty("contactPerson", String.class, null);
-    affiliations.addContainerProperty("street", String.class, null);
-    affiliations.addContainerProperty("zipCode", String.class, null);
+    affiliations.addContainerProperty("Street", String.class, null);
+    affiliations.addContainerProperty("ZIP", String.class, null);
     affiliations.setPageLength(1);
     addComponent(affiliations);
   }
 
-  public Button getSearchButton() {
-    return search;
-  }
-
-  public TextField getPersonSearchField() {
+  public Button getSearchPersonButton() {
     return searchPerson;
   }
 
-  public TextField getAffiliationSearchField() {
+  public Button getSearchAffiliationButton() {
     return searchAffiliation;
   }
 
+  public TextField getPersonSearchField() {
+    return inputPerson;
+  }
+
+  public TextField getAffiliationSearchField() {
+    return inputAffiliation;
+  }
+
   public void setPersons(List<Person> foundPersons) {
-    persons.removeAllItems();
-    persons.setPageLength(foundPersons.size());
+    listIDToPerson = new HashMap<Integer, Person>();
+    personsTable.removeAllItems();
+    personsTable.setPageLength(foundPersons.size());
     for (int i = 0; i < foundPersons.size(); i++) {
       int itemId = i;
       List<Object> row = new ArrayList<Object>();
       Person p = foundPersons.get(i);
-      row.add(p.getUsername());
+      listIDToPerson.put(i, p);
+      // row.add(p.getUsername());
       row.add(p.getTitle());
       row.add(p.getFirst());
       row.add(p.getLast());
       row.add(p.geteMail());
       row.add(p.getPhone());
-      RoleAt a = p.getOneAffiliationWithRole();
-      row.add(a.getAffiliation());
-      row.add(a.getRole());
-      persons.addItem(row.toArray(new Object[row.size()]), itemId);
+      // RoleAt a = p.getOneAffiliationWithRole();
+      // row.add(a.getAffiliation());
+      // row.add(a.getRole());
+      personsTable.addItem(row.toArray(new Object[row.size()]), itemId);
     }
   }
 
@@ -127,7 +190,6 @@ public class SearchView extends VerticalLayout {
       row.add(a.getFaculty());
       row.add(a.getStreet());
       row.add(a.getZipCode());
-      System.out.println(a.getZipCode());
       affiliations.addItem(row.toArray(new Object[row.size()]), itemId);
     }
   }

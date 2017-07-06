@@ -39,8 +39,8 @@ import com.vaadin.ui.TextField;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
 
+import life.qbic.openbis.openbisclient.IOpenBisClient;
 import logging.Log4j2Logger;
-import main.IOpenBisClient;
 
 public class ProjectView extends VerticalLayout {
   logging.Logger logger = new Log4j2Logger(ProjectView.class);
@@ -52,6 +52,7 @@ public class ProjectView extends VerticalLayout {
   private TextField altName;
   private ComboBox investigator;
   private ComboBox contact;
+  private ComboBox manager;
   private Button submitInfo;
 
   private Table projectPersons;
@@ -75,20 +76,13 @@ public class ProjectView extends VerticalLayout {
     projectTable.addContainerProperty("Principal Investigator", String.class, null);
     projectTable.setSelectable(true);
     addComponent(projectTable);
-    
-//      filterTable.setSizeFull();
 
-      projectTable.setFilterDecorator(new ProjectFilterDecorator());
-      projectTable.setFilterGenerator(new ProjectFilterGenerator());
+    projectTable.setFilterDecorator(new ProjectFilterDecorator());
+    projectTable.setFilterGenerator(new ProjectFilterGenerator());
 
-      projectTable.setFilterBarVisible(true);
+    projectTable.setFilterBarVisible(true);
 
-//      filterTable.setSelectable(true);
-      projectTable.setImmediate(true);
-
-//      filterTable.setRowHeaderMode(RowHeaderMode.INDEX);
-//      filterTable.setColumnCollapsingAllowed(true);
-//      filterTable.setColumnReorderingAllowed(true);
+    projectTable.setImmediate(true);
 
     initProjectInfos(collection);
 
@@ -101,7 +95,7 @@ public class ProjectView extends VerticalLayout {
     projectPersons.setPageLength(1);
     addComponent(projectPersons);
 
-    submitPersons = new Button("Submit Changes");
+    submitPersons = new Button("Submit Experiment");
     addComponent(submitPersons);
   }
 
@@ -120,7 +114,7 @@ public class ProjectView extends VerticalLayout {
     }
 
     // sort ascending by Project ID
-//    projectTable.sort(new Object[] {"Sub-Project"}, new boolean[] {true});
+    // projectTable.sort(new Object[] {"Sub-Project"}, new boolean[] {true});
 
     VerticalLayout projectInfo = new VerticalLayout();
     projectInfo.setVisible(false);
@@ -133,10 +127,14 @@ public class ProjectView extends VerticalLayout {
     contact = new ComboBox("Contact Person", personMap.keySet());
     contact.setStyleName(Styles.boxStyle);
     contact.setFilteringMode(FilteringMode.CONTAINS);
+    manager = new ComboBox("Project Manager", personMap.keySet());
+    manager.setStyleName(Styles.boxStyle);
+    manager.setFilteringMode(FilteringMode.CONTAINS);
     submitInfo = new Button("Change Project Information");
     projectInfo.addComponent(altName);
     projectInfo.addComponent(investigator);
     projectInfo.addComponent(contact);
+    projectInfo.addComponent(manager);
     projectInfo.addComponent(submitInfo);
     projectInfo.setSpacing(true);
     addComponent(projectInfo);
@@ -158,6 +156,7 @@ public class ProjectView extends VerticalLayout {
           altName.setValue(projectMap.get(item).getProjectName());
           investigator.setValue(projectMap.get(item).getInvestigator());
           contact.setValue(projectMap.get(item).getContact());
+          manager.setValue(projectMap.get(item).getManager());
         }
       }
     });
@@ -173,21 +172,26 @@ public class ProjectView extends VerticalLayout {
     ProjectInfo p = projectMap.get(code);
     String oldName = p.getProjectName();
     String newName = altName.getValue();
+    
     String oldPI = p.getInvestigator();
     Object newPI = investigator.getValue();
-
     boolean updatePI = oldPI != newPI;
     if (oldPI != null)
       updatePI = !oldPI.equals(newPI);
 
     String oldContact = p.getContact();
     Object newContact = contact.getValue();
-
     boolean updateContact = oldContact != newContact;
     if (oldContact != null)
       updateContact = !oldContact.equals(newContact);
 
-    boolean update = !oldName.equals(newName) || updatePI || updateContact;
+    String oldManager = p.getManager();
+    Object newManager = manager.getValue();
+    boolean updateManager = oldManager != newManager;
+    if (oldManager != null)
+      updateManager = !oldManager.equals(newManager);
+    
+    boolean update = !oldName.equals(newName) || updatePI || updateContact || updateManager;
     if (update) {
       // initProjectInfos(projectMap.values());
       ProjectInfo newInfo = new ProjectInfo(p.getSpace(), code, newName, p.getProjectID());
@@ -199,6 +203,10 @@ public class ProjectView extends VerticalLayout {
         newInfo.setContact(newContact.toString());
       else
         newInfo.setContact("");
+      if (newManager != null)
+        newInfo.setManager(newManager.toString());
+      else
+        newInfo.setManager("");
       return newInfo;
     } else {
       logger.debug("No changes to project info detected");

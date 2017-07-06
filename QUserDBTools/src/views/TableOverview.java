@@ -41,7 +41,7 @@ public class TableOverview extends VerticalLayout {
     persons = new Table("People");
     persons.setStyleName(ValoTheme.TABLE_SMALL);
 //    persons.addContainerProperty("ID", Integer.class, null);
-    persons.addContainerProperty("User", String.class, null);
+//    persons.addContainerProperty("User", String.class, null);
     persons.addContainerProperty("Title", String.class, null);
     persons.addContainerProperty("First", String.class, null);
     persons.addContainerProperty("Last", String.class, null);
@@ -73,7 +73,7 @@ public class TableOverview extends VerticalLayout {
       List<Object> row = new ArrayList<Object>();
       Person p = personData.get(i);
 //      row.add(p.getID());
-      row.add(p.getUsername());
+//      row.add(p.getUsername());
       row.add(p.getTitle());
       row.add(p.getFirst());
       row.add(p.getLast());

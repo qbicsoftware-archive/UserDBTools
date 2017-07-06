@@ -15,6 +15,7 @@
  *******************************************************************************/
 package db;
 
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -23,8 +24,10 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +37,7 @@ import java.util.Set;
 import logging.Log4j2Logger;
 import model.Affiliation;
 import model.CollaboratorWithResponsibility;
+import model.Minutes;
 import model.Person;
 import model.PersonAffiliationConnectionInfo;
 import model.ProjectInfo;
@@ -163,30 +167,29 @@ public class DBManager {
   private Connection login() {
     String DB_URL = "jdbc:mariadb://" + config.getHostname() + ":" + config.getPort() + "/"
         + config.getSql_database();
-
     Connection conn = null;
-
     try {
       Class.forName("org.mariadb.jdbc.Driver");
       conn = DriverManager.getConnection(DB_URL, config.getUsername(), config.getPassword());
     } catch (Exception e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
     return conn;
   }
 
-  public void addOrChangeSecondaryNameForProject(String projectCode, String secondaryName) {
-    logger
-        .info("Adding/Updating secondary name of projects " + projectCode + " to " + secondaryName);
-    // TODO not safe for projects in multiple spaces, which is currently impossible
-    String sql = "UPDATE projects SET short_title = ? WHERE openbis_project_identifier LIKE ?";
+  public void addOrChangeSecondaryNameForProject(int projectID, String secondaryName) {
+    logger.info(
+        "Adding/Updating secondary name of project with id " + projectID + " to " + secondaryName);
+    boolean saved = saveOldSecondaryNameForProjects(projectID);
+    if (!saved)
+      logger.warn("Could not save old project description to database!");
+    String sql = "UPDATE projects SET short_title = ? WHERE id = ?";
     Connection conn = login();
     PreparedStatement statement = null;
     try {
       statement = conn.prepareStatement(sql);
       statement.setString(1, secondaryName);
-      statement.setString(2, "%" + projectCode);
+      statement.setInt(2, projectID);
       statement.execute();
       logger.info("Successful.");
     } catch (SQLException e) {
@@ -195,6 +198,100 @@ public class DBManager {
     } finally {
       endQuery(conn, statement);
     }
+  }
+
+  private boolean saveOldSecondaryNameForProjects(int id) {
+    String sql = "SELECT * from projects WHERE id = ?";
+    String oldDescription = "";
+    String oldTitle = "";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, id);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        oldDescription = rs.getString("long_description");
+        oldTitle = rs.getString("short_title");
+      }
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    }
+    Date date = new java.util.Date();
+    Timestamp timestamp = new Timestamp(date.getTime());
+    sql =
+        "INSERT INTO projects_history (project_id, timestamp, long_description, short_title) VALUES(?, ?, ?, ?)";
+    statement = null;
+    int res = -1;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, id);
+      statement.setTimestamp(2, timestamp);
+      statement.setString(3, oldDescription);
+      statement.setString(4, oldTitle);
+      statement.execute();
+      res = statement.getUpdateCount();
+      logger.info("Successful.");
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res != -1;
+  }
+
+  public int addMinutes(Minutes m) {
+    logger.info("Adding minutes information.");
+    String sql = "INSERT into project_minutes values (? ? ? ? ? ?)";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setString(1, m.getPurpose());
+      statement.setString(2, m.getParticipants());
+      statement.setString(3, m.getAgenda());
+      statement.setString(4, m.getDiscussion());
+      statement.setString(5, m.getResults());
+      statement.setString(6, m.getNextSteps());
+      statement.execute();
+      ResultSet rs = statement.getGeneratedKeys();
+      if (rs.next()) {
+        logout(conn);
+        logger.info("Successful.");
+        return rs.getInt(1);
+      }
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return -1;
+  }
+
+  public Minutes getMinutesByID(int id) {
+    logger.info("Looking for project minutes with id " + id + ".");
+    String sql = "SELECT * from project_minutes WHERE id = ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, id);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        return new Minutes(id, rs.getString("purpose"), rs.getString("participants"),
+            rs.getString("agenda"), rs.getString("discussion"), rs.getString("results"),
+            rs.getString("next_steps"));
+      }
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return null;
   }
 
   public List<String> getPossibleEnumsForColumnsInTable(String table, String column) {
@@ -236,54 +333,6 @@ public class DBManager {
     }
     return res;
   }
-
-  // public void addProjectForPrincipalInvestigator(int pi_id, String projectCode) {
-  // logger.info("Trying to add project " + projectCode + " to the principal investigator DB");
-  // String sql = "INSERT INTO projects (pi_id, project_code) VALUES(?, ?)";
-  // Connection conn = login();
-  // try (PreparedStatement statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS))
-  // {
-  // statement.setInt(1, pi_id);
-  // statement.setString(2, projectCode);
-  // statement.execute();
-  // logger.info("Successful.");
-  // } catch (SQLException e) {
-  // logger.error("SQL operation unsuccessful: " + e.getMessage());
-  // e.printStackTrace();
-  // } finally {
-  // endQuery(conn, statement);
-  // }
-  // }
-
-  // public String getInvestigatorForProject(String projectCode) {
-  // String id_query = "SELECT pi_id FROM projects WHERE project_code = " + projectCode;
-  // String id = "";
-  // Connection conn = login();
-  // try (PreparedStatement statement = conn.prepareStatement(id_query)) {
-  // ResultSet rs = statement.executeQuery();
-  // while (rs.next()) {
-  // id = Integer.toString(rs.getInt("pi_id"));
-  // }
-  // } catch (SQLException e) {
-  // e.printStackTrace();
-  // }
-  //
-  // String sql = "SELECT first_name, last_name FROM project_investigators WHERE pi_id = " + id;
-  // String fullName = "";
-  // try (PreparedStatement statement = conn.prepareStatement(sql)) {
-  // ResultSet rs = statement.executeQuery();
-  // while (rs.next()) {
-  // String first = rs.getString("first_name");
-  // String last = rs.getString("last_name");
-  // fullName = first + " " + last;
-  // }
-  // } catch (SQLException e) {
-  // e.printStackTrace();
-  // } finally {
-  // endQuery(conn, statement);
-  // }
-  // return fullName;
-  // }
 
   public boolean isProjectInDB(String projectIdentifier) {
     logger.info("Looking for project " + projectIdentifier + " in the DB");
@@ -502,7 +551,7 @@ public class DBManager {
         String groupName = rs.getString("group_name");
         String acronym = rs.getString("group_acronym");
         String organization = rs.getString("institute");
-        if (acronym == null)
+        if (acronym == null || acronym.isEmpty())
           res.put(groupName + " - " + organization, id);
         else
           res.put(groupName + " (" + acronym + ") - " + organization, id);
@@ -515,10 +564,10 @@ public class DBManager {
     return res;
   }
 
-  public boolean addNewAffiliation(Affiliation affiliation) {
+  public int addNewAffiliation(Affiliation affiliation) {
+    int res = -1;
     logger.info("Trying to add new affiliation to the DB");
     // TODO empty values are inserted as empty strings, ok?
-    boolean res = false;
     String insert =
         "INSERT INTO organizations (group_name,group_acronym,umbrella_organization,institute,faculty,street,zip_code,"
             + "city,country,webpage";
@@ -554,8 +603,12 @@ public class DBManager {
       if (affiliation.getHeadID() > 0)
         statement.setInt(11 + offset, affiliation.getHeadID());
       statement.execute();
-      logger.info("Successful.");
-      res = true;
+      ResultSet rs = statement.getGeneratedKeys();
+      if (rs.next()) {
+        logout(conn);
+        logger.info("Successful.");
+        res = rs.getInt(1);
+      }
     } catch (SQLException e) {
       logger.error("SQL operation unsuccessful: " + e.getMessage());
       e.printStackTrace();
@@ -854,7 +907,7 @@ public class DBManager {
             rs.getString("group_name") + " (" + rs.getString("group_acronym") + ")";
         String role = rs.getString(lnk + ".occupation");
         res.add(new Person(username, title, first, last, eMail, phone, affiliationID, affiliation,
-            role));
+            role)); //TODO add every affiliation!
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -1089,7 +1142,9 @@ public class DBManager {
     try {
       statement = conn.prepareStatement(sql);
       ResultSet rs = statement.executeQuery();
+      List<Affiliation> affiliations = new ArrayList<Affiliation>();
       while (rs.next()) {
+        affiliations.add(getAffiliationWithID(rs.getInt("organizations.id")));
         int id = rs.getInt("id");
         String username = rs.getString("username");
         String title = rs.getString("title");
@@ -1099,11 +1154,13 @@ public class DBManager {
         String phone = rs.getString("phone");
         int affiliationID = rs.getInt("organizations.id");
         String affiliation = rs.getString("group_name");
-        if (rs.getString("group_acronym") != null)
+        String acr = rs.getString("group_acronym");
+        if (acr != null && !acr.isEmpty()) {
           affiliation += " (" + rs.getString("group_acronym") + ")";
+        }
         String role = rs.getString(lnk + ".occupation");
         res.add(new Person(username, title, first, last, eMail, phone, affiliationID, affiliation,
-            role));
+            role, affiliations));
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -1113,13 +1170,62 @@ public class DBManager {
     return res;
   }
 
-  public Person getPerson(Integer id) {
-    Person res = null;
-    String sql = "SELECT * FROM persons WHERE persons.id = " + Integer.toString(id);
+  private Affiliation getAffiliationWithID(int id) {
+    Affiliation res = null;
+    String sql = "SELECT * from organizations WHERE id = ?";
+    
     Connection conn = login();
     PreparedStatement statement = null;
     try {
       statement = conn.prepareStatement(sql);
+      statement.setInt(1, id);
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        String groupName = rs.getString("group_name");
+        String acronym = rs.getString("group_acronym");
+        if (acronym == null)
+          acronym = "";
+        String organization = rs.getString("umbrella_organization");
+        String faculty = rs.getString("faculty");
+        String institute = rs.getString("institute");
+        if (institute == null)
+          institute = "";
+        String street = rs.getString("street");
+        String zipCode = rs.getString("zip_code");
+        String city = rs.getString("city");
+        String country = rs.getString("country");
+        String webpage = rs.getString("webpage");
+        int contactID = rs.getInt("main_contact");
+        int headID = rs.getInt("head");
+        String contact = null;
+        String head = null;
+        if (contactID > 0) {
+          Person c = getPerson(contactID);
+          contact = c.getFirst() + " " + c.getLast();
+        }
+        if (headID > 0) {
+          Person h = getPerson(headID);
+          head = h.getFirst() + " " + h.getLast();
+        }
+        res = new Affiliation(id, groupName, acronym, organization, institute, faculty, contact,
+            head, street, zipCode, city, country, webpage);
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
+  }
+
+  public Person getPerson(int id) {
+    Person res = null;
+    String sql = "SELECT * FROM persons WHERE persons.id = ?";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setInt(1, id);
       ResultSet rs = statement.executeQuery();
       while (rs.next()) {
         String username = rs.getString("username");
@@ -1128,7 +1234,7 @@ public class DBManager {
         String last = rs.getString("family_name");
         String eMail = rs.getString("email");
         String phone = rs.getString("phone");
-        res = new Person(username, title, first, last, eMail, phone, -1, null, null);
+        res = new Person(username, title, first, last, eMail, phone, -1, null, null);//TODO add every affiliation?
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -1185,7 +1291,17 @@ public class DBManager {
       ResultSet rs = statement.executeQuery();
       while (rs.next()) {
         int id = rs.getInt("id");
-        res.add(getPersonWithAffiliations(id).get(0));
+        List<Person> found = getPersonWithAffiliations(id);
+        if (found.isEmpty()) {
+          String username = rs.getString("username");
+          String title = rs.getString("title");
+          String first = rs.getString("first_name");
+          String last = rs.getString("family_name");
+          String eMail = rs.getString("email");
+          String phone = rs.getString("phone");
+          res.add(new Person(username, title, first, last, eMail, phone, -1, "N/A", "N/A"));
+        } else
+          res.add(found.get(0));//TODO set all of them!
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -1259,22 +1375,23 @@ public class DBManager {
       statement = conn.prepareStatement(sql);
       ResultSet rs = statement.executeQuery();
       while (rs.next()) {
-        String[] openbisIDSplit = rs.getString("openbis_project_identifier").split("/");
+        String projectID = rs.getString("openbis_project_identifier");
+        String[] openbisIDSplit = projectID.split("/");
         String project = openbisIDSplit[2];
         String role = rs.getString("project_role");
         String name = rs.getString("first_name") + " " + rs.getString("family_name");
-        if (!res.containsKey(project)) {
+        if (!res.containsKey(projectID)) {
           // first result row
           String space = openbisIDSplit[1];
           int id = rs.getInt("project_id");
           String shortName = rs.getString("short_title");
-          res.put(project, new ProjectInfo(space, project, shortName, id));
+          res.put(projectID, new ProjectInfo(space, project, shortName, id));
         }
         // setting person in first and second result row
         if (role.equals("PI"))
-          res.get(project).setInvestigator(name);
+          res.get(projectID).setInvestigator(name);
         else
-          res.get(project).setContact(name);
+          res.get(projectID).setContact(name);
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -1297,7 +1414,7 @@ public class DBManager {
           String space = openbisIDSplit[1];
           int id = rs.getInt("id");
           String shortName = rs.getString("short_title");
-          res.put(project, new ProjectInfo(space, project, shortName, id));
+          res.put(projID, new ProjectInfo(space, project, shortName, id));
         } catch (Exception e) {
           logger.error("Could not parse project from openbis identifier " + projID
               + ". It seems this database entry is incorrect. Ignoring project.");
@@ -1556,5 +1673,26 @@ public class DBManager {
         }
       }
     }
+  }
+
+  public boolean userNameExists(String username) {
+    logger.info("Looking for user " + username + " in the DB");
+    String sql = "SELECT * from persons WHERE username = ?";
+    boolean res = false;
+    Connection conn = login();
+    try {
+      PreparedStatement statement = conn.prepareStatement(sql);
+      statement.setString(1, username);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        logger.info("user found!");
+        res = true;
+      }
+    } catch (SQLException e) {
+      logger.error("SQL operation unsuccessful: " + e.getMessage());
+      e.printStackTrace();
+    }
+    logout(conn);
+    return res;
   }
 }
