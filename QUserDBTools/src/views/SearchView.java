@@ -22,7 +22,6 @@ import java.util.Map;
 
 import model.Affiliation;
 import model.Person;
-import model.RoleAt;
 
 import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.Property.ValueChangeListener;

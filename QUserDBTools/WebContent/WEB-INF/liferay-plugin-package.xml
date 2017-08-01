@@ -3,7 +3,7 @@
                                                                                                                                                                                                 
 <plugin-package>                                                                                                                                                                                
         <name><![CDATA[QUserDB]]></name>                                                                                                                                               
-        <module-id>qbic/quserdbtools/0.9.5/war</module-id>                                                                                                                             
+        <module-id>qbic/quserdbtools/0.9.51/war</module-id>                                                                                                                             
         <recommended-deployment-context>quserdbtools</recommended-deployment-context>                                                                                                       
         <required-deployment-contexts></required-deployment-contexts>                                                                                                                           
         <types>                                                                                                                                                                                 

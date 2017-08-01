@@ -907,7 +907,7 @@ public class DBManager {
             rs.getString("group_name") + " (" + rs.getString("group_acronym") + ")";
         String role = rs.getString(lnk + ".occupation");
         res.add(new Person(username, title, first, last, eMail, phone, affiliationID, affiliation,
-            role)); //TODO add every affiliation!
+            role)); // TODO add every affiliation!
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -1173,7 +1173,7 @@ public class DBManager {
   private Affiliation getAffiliationWithID(int id) {
     Affiliation res = null;
     String sql = "SELECT * from organizations WHERE id = ?";
-    
+
     Connection conn = login();
     PreparedStatement statement = null;
     try {
@@ -1234,7 +1234,9 @@ public class DBManager {
         String last = rs.getString("family_name");
         String eMail = rs.getString("email");
         String phone = rs.getString("phone");
-        res = new Person(username, title, first, last, eMail, phone, -1, null, null);//TODO add every affiliation?
+        res = new Person(username, title, first, last, eMail, phone, -1, null, null);// TODO add
+                                                                                     // every
+                                                                                     // affiliation?
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -1278,8 +1280,50 @@ public class DBManager {
     }
   }
 
+  public List<Person> getPersonsByName(String one, String two) {
+    List<Person> res = new ArrayList<Person>();
+
+    String sql = "SELECT * from persons where (first_name LIKE ? AND family_name LIKE ?) OR "
+        + "(family_name LIKE ? AND first_name LIKE ?)";
+    Connection conn = login();
+    PreparedStatement statement = null;
+    try {
+      statement = conn.prepareStatement(sql);
+      statement.setString(1, "%" + one + "%");
+      statement.setString(2, "%" + two + "%");
+      statement.setString(3, "%" + one + "%");
+      statement.setString(4, "%" + two + "%");
+      ResultSet rs = statement.executeQuery();
+      while (rs.next()) {
+        int id = rs.getInt("id");
+        List<Person> found = getPersonWithAffiliations(id);
+        if (found.isEmpty()) {
+          String username = rs.getString("username");
+          String title = rs.getString("title");
+          String first = rs.getString("first_name");
+          String last = rs.getString("family_name");
+          String eMail = rs.getString("email");
+          String phone = rs.getString("phone");
+          res.add(new Person(username, title, first, last, eMail, phone, -1, "N/A", "N/A"));
+        } else
+          res.add(found.get(0));// TODO set all of them!
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      endQuery(conn, statement);
+    }
+    return res;
+  }
+
   public List<Person> getPersonsContaining(String personQuery) {
     List<Person> res = new ArrayList<Person>();
+    personQuery = personQuery.trim();
+    if (personQuery.contains(" ")) {
+      String one = personQuery.split(" ")[0];
+      String two = personQuery.split(" ")[1];
+      res.addAll(getPersonsByName(one, two));
+    }
 
     String sql = "SELECT * from persons where first_name LIKE ? OR family_name LIKE ?";
     Connection conn = login();
@@ -1301,7 +1345,7 @@ public class DBManager {
           String phone = rs.getString("phone");
           res.add(new Person(username, title, first, last, eMail, phone, -1, "N/A", "N/A"));
         } else
-          res.add(found.get(0));//TODO set all of them!
+          res.add(found.get(0));// TODO set all of them!
       }
     } catch (SQLException e) {
       e.printStackTrace();
