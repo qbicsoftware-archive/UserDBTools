@@ -30,6 +30,7 @@ import ldap.LDAPConfig;
 import life.qbic.openbis.openbisclient.IOpenBisClient;
 import life.qbic.openbis.openbisclient.OpenBisClient;
 import life.qbic.openbis.openbisclient.OpenBisClientMock;
+import life.qbic.portal.liferayandvaadinhelpers.main.LiferayAndVaadinUtils;
 import logging.Log4j2Logger;
 import model.Affiliation;
 import model.CollaboratorWithResponsibility;
@@ -67,14 +68,13 @@ import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Project;
 import config.ConfigurationManagerFactory;
 import db.Config;
 import db.DBManager;
-import de.uni_tuebingen.qbic.main.LiferayAndVaadinUtils;
 
 @SuppressWarnings("serial")
 @Theme("quserdbtools")
 public class QuserdbtoolsUI extends UI {
 
   @WebServlet(value = "/*", asyncSupported = true)
-  @VaadinServletConfiguration(productionMode = true, ui = QuserdbtoolsUI.class,
+  @VaadinServletConfiguration(productionMode = false, ui = QuserdbtoolsUI.class,
       widgetset = "qdbtools.main.widgetset.QuserdbtoolsWidgetset")
   public static class Servlet extends VaadinServlet {
   }
@@ -87,6 +87,7 @@ public class QuserdbtoolsUI extends UI {
   private TabSheet options;
 
   private Config config;
+  public static String tmpFolder;
 
   private IOpenBisClient openbis;
   private boolean testMode = false;
@@ -100,6 +101,7 @@ public class QuserdbtoolsUI extends UI {
     options = new TabSheet();
 
     this.config = readConfig();
+    tmpFolder = config.getTmpFolder();
     LDAPConfig ldapConfig = readLdapConfig();// TODO
 
     // establish connection to the OpenBIS API
@@ -559,7 +561,7 @@ public class QuserdbtoolsUI extends UI {
 
     return new Config(c.getMysqlHost(), c.getMysqlPort(), c.getMysqlDB(), c.getMysqlUser(),
         c.getMysqlPass(), c.getDBInputUserGrps(), c.getDBInputAdminGrps(), c.getDataSourceUrl(),
-        c.getDataSourceUser(), c.getDataSourcePassword());
+        c.getDataSourceUser(), c.getDataSourcePassword(), c.getTmpFolder());
   }
 
   private LDAPConfig readLdapConfig() {

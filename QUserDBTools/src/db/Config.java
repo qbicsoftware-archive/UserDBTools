@@ -29,10 +29,11 @@ public class Config {
   private String openbisPass;
   private List<String> userGrps;
   private List<String> adminGrps;
+  private String tmpFolder;
 
   public Config(String hostname, String port, String sql_database, String username, String password,
       List<String> userGrps, List<String> adminGrps, String openbisURL, String openbisUser,
-      String openbisPass) {
+      String openbisPass, String tmpFolder) {
     this.hostname = hostname;
     this.port = port;
     this.sql_database = sql_database;
@@ -43,8 +44,13 @@ public class Config {
     this.openbisURL = openbisURL;
     this.openbisUser = openbisUser;
     this.openbisPass = openbisPass;
+    this.tmpFolder = tmpFolder;
   }
 
+  public String getTmpFolder() {
+    return tmpFolder;
+  }
+  
   public String getOpenbisURL() {
     return openbisURL;
   }

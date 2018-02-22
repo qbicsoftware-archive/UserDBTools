@@ -70,7 +70,7 @@ public class ProjectView extends VerticalLayout {
     projectTable.setPageLength(Math.min(15, collection.size()));
     projectTable.setStyleName(ValoTheme.TABLE_SMALL);
     projectTable.addContainerProperty("Sub-Project", String.class, null);
-    projectTable.addContainerProperty("Name", String.class, null);
+    projectTable.addContainerProperty("Short Title", String.class, null);
     projectTable.setColumnWidth("Name", 300);
     projectTable.addContainerProperty("Project", String.class, null);
     projectTable.addContainerProperty("Principal Investigator", String.class, null);
@@ -118,7 +118,7 @@ public class ProjectView extends VerticalLayout {
 
     VerticalLayout projectInfo = new VerticalLayout();
     projectInfo.setVisible(false);
-    altName = new TextField("Name");
+    altName = new TextField("Short Title");
     altName.setWidth("300px");
     altName.setStyleName(Styles.textStyle);
     investigator = new ComboBox("Principal Investigator", personMap.keySet());
@@ -153,6 +153,7 @@ public class ProjectView extends VerticalLayout {
         if (item != null) {
           projectInfo.setVisible(true);
           projectInfo.setCaption(projectMap.get(item).getProjectCode());
+          System.out.println(projectMap.get(item));
           altName.setValue(projectMap.get(item).getProjectName());
           investigator.setValue(projectMap.get(item).getInvestigator());
           contact.setValue(projectMap.get(item).getContact());

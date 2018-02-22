@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.swing.SwingWorker;
+
 import logging.Log4j2Logger;
 import model.Affiliation;
 import model.CollaboratorWithResponsibility;
@@ -573,7 +575,7 @@ public class DBManager {
             + "city,country,webpage";
     String values = "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?";
     if (affiliation.getContactPersonID() > 0) {
-      insert += ",contact";
+      insert += ",main_contact";
       values += ", ?";
     }
     if (affiliation.getHeadID() > 0) {
@@ -1431,11 +1433,22 @@ public class DBManager {
           String shortName = rs.getString("short_title");
           res.put(projectID, new ProjectInfo(space, project, shortName, id));
         }
-        // setting person in first and second result row
-        if (role.equals("PI"))
-          res.get(projectID).setInvestigator(name);
-        else
-          res.get(projectID).setContact(name);
+        // setting person for different role rows
+        ProjectInfo info = res.get(projectID);
+        switch (role) {
+          case "PI":
+            info.setInvestigator(name);
+            break;
+          case "Contact":
+            info.setContact(name);
+            break;
+          case "Manager":
+            info.setManager(name);
+            break;
+          default:
+            logger.error("Unknown/unimplemented project role: " + role);
+            break;
+        }
       }
     } catch (SQLException e) {
       e.printStackTrace();

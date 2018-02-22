@@ -47,27 +47,21 @@ public class ProjectInfo {
   }
 
   public String getInvestigator() {
-//    if (investigator == null)
-//      return "";
-//    else
-      return investigator;
+    return investigator;
   }
 
   public String getContact() {
-//    if (contact == null)
-//      return "";
-//    else
-      return contact;
+    return contact;
   }
 
   public String getManager() {
     return manager;
   }
-  
+
   public void setManager(String name) {
     this.manager = name;
   }
-  
+
   public void setContact(String name) {
     this.contact = name;
   }
@@ -79,10 +73,14 @@ public class ProjectInfo {
   public void setProjectName(String newName) {
     this.projectName = newName;
   }
-  
+
   @Override
   public String toString() {
-    return projectCode + " ("+projectName+")";
+    String res = projectCode + " (" + projectName + ")\n";
+    res += "PI: " + investigator + ", ";
+    res += "Ctct: " + contact + ", ";
+    res += "Mngr: " + manager;
+    return res;
   }
 
 }
